@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Join Shared List</title>
+</head>
+<body style="font-family: sans-serif; padding: 2rem">
+  <h2>Join a Shared List</h2>
+  <p id="listIdDisplay">Loading list...</p>
+  <input type="email" id="emailInput" placeholder="Enter your email" />
+  <button id="joinBtn">Join List</button>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const listId = urlParams.get("list_id");
+    document.getElementById("listIdDisplay").textContent = `List ID: ${listId}`;
+
+    document.getElementById("joinBtn").addEventListener("click", async () => {
+      const email = document.getElementById("emailInput").value;
+      if (!email || !listId) return alert("Missing email or list ID");
+
+      try {
+        const response = await fetch("http://127.0.0.1:8080/join-list", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ list_id: listId, user_email: email }),
+        });
+
+        const data = await response.json();
+        alert(data.message || data.error);
+      } catch (err) {
+        console.error(err);
+        alert("❌ Failed to join the list.");
+      }
+    });
+  </script>
+</body>
+</html>
