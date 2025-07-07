@@ -1,22 +1,24 @@
-from flask import Flask, request, jsonify, session
-from werkzeug.utils import secure_filename
-from flask_cors import CORS
 import os
 import datetime
 import json
 import re
-import google.generativeai as genai
-import firebase_admin
-from firebase_admin import credentials, firestore
 import traceback # For detailed error logging
+
+from flask import Flask, request, jsonify, session
 from flask_cors import CORS
+from werkzeug.utils import secure_filename
+
+# Firebase and Google AI Imports
+import firebase_admin
+from firebase_admin import credentials, auth, firestore
+import google.generativeai as genai
 
 # Imports for file handling
 import PyPDF2
 import docx
 
 print("📁 Current working directory:", os.getcwd())
-print("📂 Files in this directory:", os.listdir())
+
 # === CONFIGURE GEMINI ===
 # IMPORTANT: Replace with your actual GOOGLE_API_KEY or load from an environment variable.
 GOOGLE_API_KEY = "AIzaSyCjdfKoZV6kMR27XBkmEwBTkkK0yTgRE1Q" # <--- REPLACE THIS
@@ -32,7 +34,6 @@ except Exception as e:
     model = None
 
 # === INITIALIZE FIRESTORE ===
-# Updated Firestore initialization block with smart path handling.
 db = None
 try:
     print("🟡 Trying to initialize Firebase Admin...")
@@ -54,12 +55,14 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24) # Required for session management
 # This will allow requests from your React app's origin and Live Server to access your backend API routes.
 CORS(app, supports_credentials=True, origins=[
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "http://localhost:5174",
     "http://127.0.0.1:5174",
+    "http://localhost:5175", 
+    "http://127.0.0.1:5175",
     "http://localhost:5500",
     "http://127.0.0.1:5500",
-    "http://localhost:5175", # Added new origin for React app
-    "http://127.0.0.1:5175"
 ])
 print("✅ Flask App initialized with CORS for all routes.")
 
@@ -187,6 +190,28 @@ For every identified task, you must extract these five data points:
         return []
 
 # === API ENDPOINTS ===
+
+@app.route("/")
+def index():
+    return jsonify({"message": "🚀 TaskSteer backend is running."}), 200
+
+@app.route('/login', methods=['POST', 'OPTIONS'])
+def login():
+    if request.method == "OPTIONS": return '', 204
+    try:
+        data = request.get_json()
+        token = data.get("token")
+        if not token: return jsonify({"message": "Error: No token provided"}), 400
+        
+        decoded_token = auth.verify_id_token(token)
+        uid = decoded_token['uid']
+        print(f"✅ Token verified for UID: {uid}")
+        
+        session["user_token"] = token 
+        return jsonify({"message": "Login successful", "uid": uid}), 200
+    except Exception as e:
+        print(f"Error during login: {e}")
+        return jsonify({"error": "Invalid token or internal server error"}), 401
 
 @app.route("/suggest-status", methods=["POST", "OPTIONS"])
 def suggest_status():
@@ -452,18 +477,6 @@ def create_list():
         print(f"🔥❌ /create-list Error: {e}"); traceback.print_exc()
         return jsonify({"error": "Failed to create list.", "details": str(e)}), 500
 
-@app.route("/login", methods=["POST", "OPTIONS"])
-def login():
-    if request.method == "OPTIONS": return '', 204
-    try:
-        token = request.json.get("token")
-        if not token: return jsonify({"message": "Error: No token provided"}), 400
-        print(f"Received token: {token[:30]}...") 
-        session["user_token"] = token 
-        return jsonify({"message": "Login successful"}), 200
-    except Exception as e:
-        print(f"Error during login: {e}")
-        return jsonify({"message": "Internal server error"}), 500
 
 @app.route("/join-list", methods=["POST", "OPTIONS"])
 def join_shared_list():
@@ -563,10 +576,6 @@ def delete_list(list_id):
     except Exception as e:
         print(f"🔥❌ /delete-list Error: {e}"); traceback.print_exc()
         return jsonify({"error": "Failed to delete list.", "details": str(e)}), 500
-
-@app.route("/")
-def index():
-    return jsonify({"message": "🚀 TaskSteer backend is running."}), 200
 
 # === RUN SERVER ===
 if __name__ == "__main__":
