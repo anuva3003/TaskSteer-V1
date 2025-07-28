@@ -1,13 +1,2570 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskSteer - Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✅</text></svg>">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* Tailwind slate-50 (Very light gray) */
+            display: flex;
+        }
+        /* Sidebar Styles */
+        #sidebar {
+            width: 250px;
+            background-color: #1e293b; /* Tailwind slate-800 (Dark Slate Gray) */
+            padding: 1.5rem;
+            height: 100vh;
+            position: fixed;
+            left: 0;
+            top: 0;
+            transition: transform 0.3s ease-in-out;
+            z-index: 100;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        #sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+        #sidebar nav {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        #mainContent {
+            margin-left: 250px;
+            flex-grow: 1;
+            transition: margin-left 0.3s ease-in-out;
+            overflow-y: auto;
+            height: 100vh;
+        }
+        #mainContent.sidebar-collapsed {
+            margin-left: 0;
+        }
+        .sidebar-toggle {
+            position: fixed;
+            top: 1rem;
+            left: 1rem; /* Consistently positioned at the left edge of the viewport */
+            z-index: 110; /* Ensures it's above the sidebar when open */
+            background-color: #7c3aed; /* Tailwind violet-600 */
+            color: #f5f3ff; /* Tailwind violet-50 */
+            border: none;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: transform 0.3s ease-in-out, background-color 0.2s;
+        }
+        .sidebar-toggle:hover {
+            background-color: #6d28d9; /* Tailwind violet-700 */
+        }
+        .sidebar-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0.375rem;
+            color: #ddd6fe; /* Tailwind violet-200 (Light violet for text) */
+            font-weight: 500;
+            transition: background-color 0.2s, color 0.2s;
+            cursor: pointer;
+        }
+        .sidebar-item:hover, .sidebar-item.active {
+            background-color: #4338ca; /* Tailwind indigo-700 (complementary to violet) */
+            color: #ffffff; /* White text for active/hover */
+        }
+        .sidebar-item svg {
+            margin-right: 0.75rem;
+            width: 1.25rem;
+            height: 1.25rem;
+        }
+        #sidebar .tasksteer-title { /* Sidebar Title */
+            color: #ffffff; /* White */
+        }
+
+        .modal-overlay {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-content {
+            transition: transform 0.3s ease-in-out;
+        }
+        #personalTaskList::-webkit-scrollbar, #sharedTaskList::-webkit-scrollbar, #dailyFocusTasksArea::-webkit-scrollbar, #remindersContentArea::-webkit-scrollbar, #settingsContentArea::-webkit-scrollbar, #transcriptOptionsModal .modal-content::-webkit-scrollbar { /* Updated IDs */
+            width: 8px;
+        }
+        #personalTaskList::-webkit-scrollbar-track, #sharedTaskList::-webkit-scrollbar-track, #dailyFocusTasksArea::-webkit-scrollbar-track, #remindersContentArea::-webkit-scrollbar-track, #settingsContentArea::-webkit-scrollbar-track, #transcriptOptionsModal .modal-content::-webkit-scrollbar-track { /* Updated IDs */
+            background: #e0e7ff; /* Tailwind indigo-100 */
+            border-radius: 10px;
+        }
+        #personalTaskList::-webkit-scrollbar-thumb, #sharedTaskList::-webkit-scrollbar-thumb, #dailyFocusTasksArea::-webkit-scrollbar-thumb, #remindersContentArea::-webkit-scrollbar-thumb, #settingsContentArea::-webkit-scrollbar-thumb, #transcriptOptionsModal .modal-content::-webkit-scrollbar-thumb { /* Updated IDs */
+            background: #a5b4fc; /* Tailwind indigo-300 */
+            border-radius: 10px;
+        }
+        #personalTaskList::-webkit-scrollbar-thumb:hover, #sharedTaskList::-webkit-scrollbar-thumb:hover, #dailyFocusTasksArea::-webkit-scrollbar-thumb:hover, #remindersContentArea::-webkit-scrollbar-thumb:hover, #settingsContentArea::-webkit-scrollbar-thumb:hover, #transcriptOptionsModal .modal-content::-webkit-scrollbar-thumb:hover { /* Updated IDs */
+            background: #818cf8; /* Tailwind indigo-400 */
+        }
+        .fab-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 50;
+            display: flex;
+            align-items: flex-end;
+            gap: 0.75rem;
+        }
+        .fab, .secondary-fab {
+            color: #ffffff;
+            width: 4rem;
+            height: 4rem;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+            transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .fab { /* Main FAB */
+            background-color: #7c3aed; /* Tailwind violet-600 */
+        }
+        .fab:hover {
+            background-color: #6d28d9; /* Tailwind violet-700 */
+            transform: scale(1.05);
+        }
+        .secondary-fab { /* Upload Transcript FAB */
+            background-color: #8b5cf6; /* Tailwind violet-500 (slightly lighter) */
+            width: 3rem;
+            height: 3rem;
+        }
+        .secondary-fab:hover {
+            background-color: #7c3aed; /* Tailwind violet-600 */
+            transform: scale(1.05);
+        }
+        .fab-icon {
+            transition: transform 0.3s ease-in-out;
+        }
+        .fab.active .fab-icon {
+            transform: rotate(45deg);
+        }
+        .fab-menu {
+            position: absolute;
+            bottom: calc(100% + 0.5rem);
+            right: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: opacity 0.2s ease-in-out, visibility 0.2s ease-in-out, transform 0.2s ease-in-out;
+        }
+        .fab-menu.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        .fab-menu-item {
+            background-color: white;
+            color: #5b21b6; /* Tailwind violet-800 */
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -1px rgba(0,0,0,0.04);
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            white-space: nowrap;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+        }
+        .fab-menu-item:hover {
+            background-color: #ede9fe; /* Tailwind violet-100 */
+        }
+        .fab-menu-item svg {
+            margin-right: 0.5rem;
+            color: #7c3aed; /* Tailwind violet-600 */
+        }
+
+        #personalTaskList { /* Updated ID */
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            min-height: 150px; /* Ensure it doesn't collapse when empty */
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .my-task-item {
+            background-color: #f5f3ff; /* Tailwind violet-50 */
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.75rem;
+            border-left: 4px solid #a78bfa; /* Tailwind violet-400 accent */
+            display: flex;
+            align-items: center;
+        }
+        .my-task-item:hover {
+            background-color: #ede9fe; /* Tailwind violet-100 */
+        }
+        .my-task-item.completed .task-title-desc, .my-task-item.completed .task-due-date {
+            text-decoration: line-through;
+            color: #9ca3af; /* Tailwind gray-400 */
+            opacity: 0.8;
+        }
+        .my-task-item input[type="checkbox"] {
+            margin-right: 0.75rem;
+            width: 1.125rem;
+            height: 1.125rem;
+            accent-color: #7c3aed; /* Tailwind violet-600 for checkbox */
+            flex-shrink: 0;
+        }
+        .task-action-button { /* Base style for task action buttons */
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0.25rem;
+            margin-left: 0.5rem; /* Spacing between buttons */
+            opacity: 0.7;
+            transition: opacity 0.2s, color 0.2s;
+            flex-shrink: 0;
+        }
+        .task-action-button:hover {
+            opacity: 1;
+        }
+        .task-delete-button {
+            color: #f43f5e; /* Tailwind rose-500 */
+        }
+        .task-delete-button:hover {
+            color: #e11d48; /* Tailwind rose-600 */
+        }
+        .task-edit-button {
+            color: #6366f1; /* Tailwind indigo-500 */
+        }
+        .task-edit-button:hover {
+            color: #4f46e5; /* Tailwind indigo-600 */
+        }
+
+        .list-delete-button {
+            background: none;
+            border: none;
+            color: #f43f5e;
+            cursor: pointer;
+            padding: 0.125rem 0.25rem;
+            margin-left: 0.75rem;
+            opacity: 0.7;
+            transition: opacity 0.2s, color 0.2s;
+            flex-shrink: 0;
+        }
+        .list-delete-button:hover {
+            opacity: 1;
+            color: #e11d48;
+        }
+
+
+        .shared-list-container {
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            margin-bottom: 1.5rem;
+        }
+        .shared-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e0f2fe; /* Tailwind sky-100 */
+        }
+        .shared-list-header-buttons {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        /* #sharedTaskList was removed as it was an empty ruleset */
+        .shared-list-tasks-container {
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 0.5rem;
+        }
+        .shared-list-task-item {
+            background-color: #f0f9ff; /* Tailwind sky-50 */
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.75rem;
+            border-left-width: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .shared-list-task-item:hover {
+            background-color: #e0f2fe; /* Tailwind sky-100 */
+        }
+        .shared-list-task-item.completed .task-content h4,
+        .shared-list-task-item.completed .task-content p {
+            text-decoration: line-through;
+            color: #9ca3af; /* Tailwind gray-400 */
+            opacity: 0.8;
+        }
+        .shared-list-task-item input[type="checkbox"] {
+            margin-right: 0.75rem;
+            width: 1.125rem;
+            height: 1.125rem;
+            accent-color: #7c3aed; /* Tailwind violet-600 for checkbox */
+            flex-shrink: 0;
+        }
+        .task-content {
+            flex-grow: 1;
+            margin-right: 1rem;
+        }
+        .task-metadata {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.25rem;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .task-actions-container { /* Container for edit/delete buttons in task items */
+            display: flex;
+            align-items: center;
+            margin-left: auto; /* Pushes to the right */
+        }
+        .members-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-left: 1rem;
+        }
+        .member-initials {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 9999px;
+            background-color: #c7d2fe; /* Tailwind indigo-200 */
+            color: #4338ca; /* Tailwind indigo-700 */
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25em 0.6em;
+            font-size: 0.75em;
+            font-weight: 600;
+            line-height: 1;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: baseline;
+            border-radius: 0.375rem;
+        }
+        /* Professional Pastel Status Badges & Borders */
+        .status-highpriority { background-color: #fecdd3; color: #9f1239; } /* Tailwind rose-200 bg, rose-800 text */
+        .shared-list-task-item.border-highpriority { border-left-color: #fb7185; } /* Tailwind rose-400 */
+
+        .status-todo { background-color: #fef9c3; color: #a16207; } /* Tailwind yellow-100 bg, yellow-700 text */
+        .shared-list-task-item.border-todo { border-left-color: #fde047; } /* Tailwind yellow-300 */
+
+        .status-inprogress { background-color: #cffafe; color: #0891b2; } /* Tailwind sky-100 bg, sky-600 text */
+        .shared-list-task-item.border-inprogress { border-left-color: #67e8f9; } /* Tailwind sky-300 */
+
+        .status-review { background-color: #ffedd5; color: #c2410c; } /* Tailwind orange-100 bg, orange-700 text */
+        .shared-list-task-item.border-review { border-left-color: #fed7aa; } /* Tailwind orange-300 */
+
+        .status-completed { background-color: #d1fae5; color: #047857; } /* Tailwind emerald-100 bg, emerald-700 text */
+        .shared-list-task-item.border-completed { border-left-color: #6ee7b7; } /* Tailwind emerald-300 */
+
+        .daily-focus-task-item, .reminder-item {
+            background-color: #fff;
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+            border-left: 4px solid #a78bfa; /* Tailwind violet-400 */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .daily-focus-task-item h5, .reminder-item h5 {
+            font-weight: 500;
+            color: #5b21b6; /* Tailwind violet-800 */
+        }
+        .daily-focus-task-item p, .reminder-item p {
+            font-size: 0.875rem;
+            color: #6d28d9; /* Tailwind violet-700 */
+        }
+        .reminder-item .nudge-message {
+            font-style: italic;
+            background-color: #fefce8; /* Tailwind yellow-50 */
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            margin-top: 0.25rem;
+            color: #854d0e; /* Tailwind yellow-700 */
+        }
+
+        /* Settings Modal Specific Styles */
+        .settings-section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #ddd6fe; /* Tailwind violet-200 */
+        }
+        .settings-section:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        .settings-label {
+            display: block;
+            font-weight: 500;
+            color: #5b21b6; /* Tailwind violet-800 */
+            margin-bottom: 0.5rem;
+        }
+        .settings-toggle-bg {
+            background-color: #cbd5e1; /* Tailwind slate-300 */
+            transition: background-color 0.2s ease-in-out;
+        }
+        .settings-toggle-bg.checked {
+            background-color: #7c3aed; /* Tailwind violet-600 for enabled toggles */
+        }
+        .settings-toggle-dot {
+            transform: translateX(0);
+            transition: transform 0.2s ease-in-out;
+        }
+        .settings-toggle-dot.checked {
+            transform: translateX(100%);
+        }
+        
+        .ai-suggest-button {
+            background-color: #f5f3ff; /* violet-50 */
+            color: #6d28d9; /* violet-700 */
+        }
+        .ai-suggest-button:hover {
+            background-color: #ede9fe; /* Tailwind violet-100 */
+        }
+
+        /* Dark mode styles (add these if you want to implement dark mode via JS) */
+        html.dark body {
+            background-color: #0f172a; /* Tailwind slate-900 */
+            color: #cbd5e1; /* Tailwind slate-300 */
+        }
+        html.dark #sidebar {
+            background-color: #1e293b; /* Tailwind slate-800 (already dark, but for consistency) */
+        }
+        html.dark header {
+            background-color: #1e293b; /* Tailwind slate-800 */
+            color: #e2e8f0; /* Tailwind slate-200 */
+        }
+        html.dark .modal-content {
+            background-color: #334155; /* Tailwind slate-700 */
+            color: #e2e8f0; /* Tailwind slate-200 */
+        }
+        html.dark .modal-content h3, html.dark .modal-content label, html.dark .modal-content #addTaskModalTitle {
+            color: #f1f5f9; /* Tailwind slate-100 */
+        }
+        html.dark .modal-content input, html.dark .modal-content textarea, html.dark .modal-content select {
+            background-color: #475569; /* Tailwind slate-600 */
+            border-color: #64748b; /* Tailwind slate-500 */
+            color: #f1f5f9; /* Tailwind slate-100 */
+        }
+        html.dark .modal-content input::placeholder, html.dark .modal-content textarea::placeholder {
+            color: #94a3b8; /* Tailwind slate-400 */
+        }
+        html.dark #personalTaskList, html.dark .shared-list-container {
+            background-color: #1e293b; /* Tailwind slate-800 */
+        }
+        html.dark .my-task-item {
+            background-color: #334155; /* Tailwind slate-700 */
+            border-left-color: #a78bfa; /* Keep violet accent or adjust */
+        }
+        html.dark .my-task-item h4, html.dark .my-task-item .task-title-desc {
+            color: #e2e8f0; /* Tailwind slate-200 */
+        }
+        html.dark .my-task-item p, html.dark .my-task-item .task-due-date {
+            color: #94a3b8; /* Tailwind slate-400 */
+        }
+        html.dark .my-task-item.completed .task-title-desc, html.dark .my-task-item.completed .task-due-date {
+            color: #64748b; /* Tailwind slate-500 */
+        }
+        html.dark .shared-list-task-item {
+            background-color: #334155; /* Tailwind slate-700 */
+        }
+        html.dark .shared-list-task-item h4 {
+            color: #e2e8f0; /* Tailwind slate-200 */
+        }
+        html.dark .shared-list-task-item p {
+            color: #94a3b8; /* Tailwind slate-400 */
+        }
+        html.dark .shared-list-header h3 {
+            color: #60a5fa; /* Tailwind sky-400 */
+        }
+        html.dark #myTasksSection h2 {
+            color: #a78bfa; /* Tailwind violet-400 */
+        }
+        html.dark .placeholder-text {
+            color: #94a3b8; /* Tailwind slate-400 */
+        }
+        html.dark .daily-focus-task-item, html.dark .reminder-item {
+            background-color: #1e293b; /* slate-800 */
+        }
+        html.dark .daily-focus-task-item h5, html.dark .reminder-item h5 {
+            color: #c4b5fd; /* violet-300 */
+        }
+        html.dark .daily-focus-task-item p, html.dark .reminder-item p {
+            color: #a5b4fc; /* indigo-300 */
+        }
+        html.dark .reminder-item .nudge-message {
+            background-color: #3730a3; /* indigo-800 (example, adjust as needed) */
+            color: #e0e7ff; /* indigo-100 */
+        }
+        html.dark .settings-label {
+            color: #c4b5fd; /* violet-300 */
+        }
+        html.dark .settings-section span {
+            color: #e2e8f0; /* slate-200 */
+        }
+        html.dark .ai-suggest-button {
+            background-color: #3730a3; /* indigo-800 */
+            color: #c7d2fe; /* indigo-200 */
+        }
+        html.dark .ai-suggest-button:hover {
+            background-color: #4338ca; /* indigo-700 */
+        }
+    </style>
+</head>
+<body class="antialiased text-slate-700">
+    <button id="sidebarToggle" class="sidebar-toggle">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+    </button>
+
+    <aside id="sidebar">
+        <div class="flex items-center justify-between mb-8 pt-10">
+            <h1 class="text-2xl font-semibold tasksteer-title">TaskSteer</h1>
+        </div>
+        <nav>
+            <div id="openDashboardButton" class="sidebar-item active">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                Dashboard
+            </div>
+            <div id="openNudgeCornerButton" class="sidebar-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"></path></svg>
+                Nudge Corner
+            </div>
+            <div id="openDailyFocusButton" class="sidebar-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                Daily Focus
+            </div>
+            <div id="openRemindersButton" class="sidebar-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                Reminders
+            </div>
+            <div id="openSettingsButton" class="sidebar-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                Settings
+            </div>
+        </nav>
+    </aside>
+
+    <div id="mainContent">
+        <header class="bg-white text-slate-700 shadow-sm sticky top-0 z-40">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <!-- Header content removed as requested -->
+                </div>
+            </div>
+        </header>
+
+        <main class="container mx-auto p-4 sm:p-6 lg:p-8">
+            <div id="dashboardView" class="flex flex-col space-y-12">
+                <div id="invites-container" class="mb-8 space-y-4"></div>
+                <section id="myTasksSection">
+                    <div class="flex justify-between items-center mb-6 pb-2 border-b-2 border-violet-200">
+                        <h2 class="text-3xl font-semibold text-violet-600">My Tasks</h2>
+                        <button id="addPersonalTaskButton" class="bg-violet-500 hover:bg-violet-600 text-white font-medium py-2 px-3 rounded-lg shadow-md transition duration-150 ease-in-out flex items-center text-sm">                                <svg class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add Task
+                            </button>
+                    </div>
+                    <div id="personalTaskList" class="text-slate-600"> <p class="placeholder-text p-4 text-center">No personal tasks yet. Add some!</p>
+                    </div>
+                </section>
+
+                <section id="sharedListsSection">
+                    <h2 class="text-3xl font-semibold text-sky-600 mb-6 pb-2 border-b-2 border-sky-200">Shared Lists</h2>
+                    <div id="sharedTaskList"> </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <div id="addTaskModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden opacity-0 z-[60]">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md transform scale-95">
+            <div class="flex justify-between items-center mb-6">
+                <h3 id="addTaskModalTitle" class="text-2xl font-semibold text-slate-700">Add New Task</h3>
+                <button id="closeTaskModalButton" class="text-slate-500 hover:text-slate-700">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <form id="taskForm">
+                <div class="mb-4">
+                    <label for="taskTitle" class="block text-sm font-medium text-slate-600 mb-1">Title</label>
+                    <input type="text" id="taskTitle" name="taskTitle" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-violet-500 focus:border-violet-500 shadow-sm" required>
+                </div>
+                <div class="mb-4">
+                    <label for="taskDescription" class="block text-sm font-medium text-slate-600 mb-1">Description</label>
+                    <textarea id="taskDescription" name="taskDescription" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-violet-500 focus:border-violet-500 shadow-sm"></textarea>
+                </div>
+                <div class="mb-6">
+                    <label for="taskDueDate" class="block text-sm font-medium text-slate-600 mb-1">Due Date (Deadline)</label>
+                    <input type="date" id="taskDueDate" name="taskDueDate" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-violet-500 focus:border-violet-500 shadow-sm">
+                </div>
+                <div id="assigneeFieldContainer" class="mb-4 hidden">
+                    <label for="taskAssignee" class="block text-sm font-medium text-slate-600 mb-1">Assign To (User Email)</label>
+                    <input type="email" id="taskAssignee" name="taskAssignee" placeholder="e.g., user@example.com" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-violet-500 focus:border-violet-500 shadow-sm">
+                </div>
+                <div id="statusFieldContainer" class="mb-6 hidden">
+                    <label for="taskStatus" class="block text-sm font-medium text-slate-600 mb-1">Status</label>
+                    <div class="flex items-center gap-2">
+                        <select id="taskStatus" name="taskStatus" class="flex-grow w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-violet-500 focus:border-violet-500 shadow-sm">
+                            <option value="highpriority">High Priority</option>
+                            <option value="todo">To Do</option>
+                            <option value="inprogress">In Progress</option>
+                            <option value="review">Review</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                        <button type="button" id="aiSuggestStatusButton" title="Suggest status with AI" class="ai-suggest-button flex-shrink-0 font-medium py-2 px-3 rounded-lg shadow-sm transition duration-150 ease-in-out flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.28 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            <span class="ml-2">Suggest</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancelTaskButton" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-lg border border-slate-300 transition">Cancel</button>
+                    <button type="submit" id="taskFormSubmitButton" class="px-4 py-2 text-sm font-medium text-white bg-violet-500 hover:bg-violet-600 rounded-lg shadow-md transition">Add Task</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="createTaskListModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden opacity-0 z-[60]">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md transform scale-95">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-semibold text-slate-700">Create New Shared List</h3>
+                <button id="closeTaskListModalButton" class="text-slate-500 hover:text-slate-700">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <form id="taskListForm">
+                <div class="mb-6">
+                    <label for="taskListNameInput" class="block text-sm font-medium text-slate-600 mb-1">List Name</label>
+                    <input type="text" id="taskListNameInput" name="taskListNameInput" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-violet-500 focus:border-violet-500 shadow-sm" required>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancelTaskListButton" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-lg border border-slate-300 transition">Cancel</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-violet-500 hover:bg-violet-600 rounded-lg shadow-md transition">Create List</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="invitePeopleModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden opacity-0 z-[60]">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md transform scale-95">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-semibold text-slate-700">Invite People</h3>
+                <button id="closeInviteModalButton" class="text-slate-500 hover:text-slate-700">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <form id="inviteForm">
+                <div class="mb-4">
+                    <label for="inviteEmailInput" class="block text-sm font-medium text-slate-600 mb-1">User Email</label>
+                    <input type="email" id="inviteEmailInput" name="inviteEmailInput" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-violet-500 focus:border-violet-500 shadow-sm" required placeholder="e.g., user@example.com">
+                </div>
+                <div class="mb-6">
+                    <label for="inviteToListSelect" class="block text-sm font-medium text-slate-600 mb-1">Invite to Shared List</label>
+                    <select id="inviteToListSelect" name="inviteToListSelect" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-violet-500 focus:border-violet-500 shadow-sm">
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" id="cancelInviteButton" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-lg border border-slate-300 transition">Cancel</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-violet-500 hover:bg-violet-600 rounded-lg shadow-md transition">Send Invite</button>
+                </div>
+                 <div class="mt-6 border-t pt-4">
+                    <label class="block text-sm font-medium text-slate-600 mb-2">Or share a link:</label>
+                    <button type="button" id="copyInviteLinkButton" class="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-violet-700 bg-violet-100 hover:bg-violet-200 rounded-lg border border-violet-200 transition">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                        Copy Invite Link
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="nudgeCornerModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden opacity-0 z-[60]">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg transform scale-95">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-semibold text-slate-700">Nudge Corner</h3>
+                <button id="closeNudgeModalButton" class="text-slate-500 hover:text-slate-700">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <form id="nudgeForm">
+                <div class="mb-4">
+                    <label for="nudgeUserSelect" class="block text-sm font-medium text-slate-600 mb-1">Select User to Nudge</label>
+                    <select id="nudgeUserSelect" name="nudgeUserSelect" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 shadow-sm">
+                    </select>
+                </div>
+                <div class="mb-4">
+                    <label for="nudgeTaskSelect" class="block text-sm font-medium text-slate-600 mb-1">Select Task</label>
+                    <select id="nudgeTaskSelect" name="nudgeTaskSelect" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 shadow-sm" disabled>
+                        <option value="">Select a user first</option>
+                    </select>
+                </div>
+                <div class="mb-6">
+                    <label for="nudgeMessage" class="block text-sm font-medium text-slate-600 mb-1">Nudge Message (Optional)</label>
+                    <textarea id="nudgeMessage" name="nudgeMessage" rows="3" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500 shadow-sm" placeholder="e.g., Hey, just a friendly reminder about this task!"></textarea>
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="cancelNudgeButton" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-lg border border-slate-300 transition">Cancel</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-yellow-500 hover:bg-yellow-600 rounded-lg shadow-md transition">Send Nudge</button> </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="dailyFocusModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden opacity-0 z-[60]">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg transform scale-95">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-semibold text-slate-700">Daily Focus</h3>
+                <button id="closeDailyFocusModalButton" class="text-slate-500 hover:text-slate-700">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div id="dailyFocusTasksArea" class="space-y-3 max-h-[60vh] overflow-y-auto">
+            </div>
+        </div>
+    </div>
+
+    <div id="remindersModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden opacity-0 z-[60]">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg transform scale-95">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-semibold text-slate-700">Reminders</h3>
+                <button id="closeRemindersModalButton" class="text-slate-500 hover:text-slate-700">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div id="remindersContentArea" class="space-y-6 max-h-[70vh] overflow-y-auto">
+                <div>
+                    <h4 class="text-xl font-semibold text-violet-600 mb-3">Tasks Due Today</h4>
+                    <div id="dueTodayTasksList" class="space-y-2">
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-xl font-semibold text-yellow-500 mb-3">Nudges Received</h4>
+                    <div id="nudgesReceivedList" class="space-y-2">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden opacity-0 z-[60]">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg transform scale-95">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-semibold text-slate-700">Settings</h3>
+                <button id="closeSettingsModalButton" class="text-slate-500 hover:text-slate-700">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div id="settingsContentArea" class="text-slate-600 space-y-6 max-h-[70vh] overflow-y-auto">
+                <div class="settings-section">
+                    <label class="settings-label">Account</label>
+                    <p class="text-sm">Logged in as: <span id="settingsUserEmail" class="font-semibold"></span></p>
+                    <p class="text-sm mt-2">User ID: <span id="settingsUserId" class="font-mono text-xs bg-slate-100 dark:bg-slate-700 p-1 rounded"></span></p>
+                    <button id="settingsLogoutButton" class="mt-4 w-full bg-violet-500 hover:bg-violet-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Logout</button>
+                </div>
+
+                <div class="settings-section">
+                    <label class="settings-label">Appearance</label>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm">Dark Mode</span>
+                        <button id="darkModeToggle" class="relative inline-flex items-center h-6 rounded-full w-11 focus:outline-none">
+                            <span class="sr-only">Enable dark mode</span>
+                            <span class="settings-toggle-bg inline-block w-11 h-6 rounded-full"></span>
+                            <span class="settings-toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transform"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <label class="settings-label">Notifications</label>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm">Email Notifications</span>
+                        <button id="emailNotificationToggle" class="relative inline-flex items-center h-6 rounded-full w-11 focus:outline-none">
+                            <span class="sr-only">Enable email notifications</span>
+                            <span class="settings-toggle-bg inline-block w-11 h-6 rounded-full checked"></span>
+                            <span class="settings-toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transform checked"></span>
+                        </button>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm">In-App Nudges</span>
+                        <button id="nudgeNotificationToggle" class="relative inline-flex items-center h-6 rounded-full w-11 focus:outline-none">
+                            <span class="sr-only">Enable in-app nudges</span>
+                            <span class="settings-toggle-bg inline-block w-11 h-6 rounded-full checked"></span>
+                            <span class="settings-toggle-dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transform checked"></span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <label for="languageSelect" class="settings-label">Language</label>
+                    <select id="languageSelect" name="languageSelect" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-violet-500 focus:border-violet-500 shadow-sm text-sm">
+                        <option value="en">English (US)</option>
+                        <option value="en-gb">English (UK)</option>
+                        <option value="es">Español</option>
+                        <option value="fr">Français</option>
+                        <option value="de">Deutsch</option>
+                    </select>
+                </div>
+
+                <div class="settings-section border-red-300">
+                    <label class="settings-label text-red-600">Danger Zone</label>
+                    <p class="text-sm text-gray-500 mb-4">This action is permanent and cannot be undone.</p>
+                    <button id="deleteAccountButton" class="w-full bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg text-sm">Delete My Account</button>
+                </div>
+
+                <div class="mt-8 flex justify-end">
+                    <button id="saveSettingsButton" class="px-6 py-2 text-sm font-medium text-white bg-violet-500 hover:bg-violet-600 rounded-lg shadow-md transition">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="transcriptOptionsModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden opacity-0 z-[70]">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-lg transform scale-95 max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-semibold text-slate-700">Transcript Options</h3>
+                <button id="closeTranscriptOptionsModalButton" class="text-slate-500 hover:text-slate-700">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div id="transcriptInfo" class="mb-4 p-3 bg-violet-50 border border-violet-200 rounded-md">
+                <p class="text-sm text-violet-700">File: <span id="uploadedFileName" class="font-semibold">N/A</span></p>
+            </div>
+            <form id="transcriptOptionsForm">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-slate-600 mb-2">How would you like to process this transcript?</label>
+                    <div class="space-y-2">
+                        <div>
+                            <input type="radio" id="transcriptActionPersonalTasks" name="transcriptAction" value="personalTasks" class="accent-violet-600">
+                            <label for="transcriptActionPersonalTasks" class="ml-2 text-sm text-slate-700">Add as Personal Tasks</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="transcriptActionNewList" name="transcriptAction" value="newList" class="accent-violet-600" checked>
+                            <label for="transcriptActionNewList" class="ml-2 text-sm text-slate-700">Create a new task list from transcript</label>
+                        </div>
+                        <div id="newTranscriptListNameContainer" class="ml-6 mb-2 hidden"> <label for="newTranscriptListName" class="block text-xs font-medium text-slate-500 mb-1">New List Name:</label>
+                            <input type="text" id="newTranscriptListName" name="newTranscriptListName" class="w-full px-3 py-1.5 border border-slate-300 rounded-md focus:ring-violet-500 focus:border-violet-500 shadow-sm text-sm">
+                        </div>
+                        <div>
+                            <input type="radio" id="transcriptActionExistingList" name="transcriptAction" value="existingList" class="accent-violet-600">
+                            <label for="transcriptActionExistingList" class="ml-2 text-sm text-slate-700">Add tasks to an existing list</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="existingListForTranscriptContainer" class="mb-6 hidden">
+                    <label for="existingListSelectForTranscript" class="block text-sm font-medium text-slate-600 mb-1">Select Existing List</label>
+                    <select id="existingListSelectForTranscript" name="existingListSelectForTranscript" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-violet-500 focus:border-violet-500 shadow-sm">
+                    </select>
+                </div>
+
+                <div class="flex justify-end space-x-3 mt-8">
+                    <button type="button" id="cancelTranscriptOptionsButton" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-lg border border-slate-300 transition">Cancel</button>
+                    <button type="submit" id="processTranscriptButton" class="px-4 py-2 text-sm font-medium text-white bg-violet-500 hover:bg-violet-600 rounded-lg shadow-md transition">Process Transcript</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="deleteListConfirmModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden opacity-0 z-[70]">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md transform scale-95">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-slate-700">Confirm Deletion</h3>
+                <button id="closeDeleteListConfirmModalButton" class="text-slate-500 hover:text-slate-700">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <p id="deleteListConfirmMessage" class="text-slate-600 mb-6">Are you sure you want to delete this list? This action cannot be undone.</p>
+            <div class="flex justify-end space-x-3">
+                <button type="button" id="cancelDeleteListButton" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-lg border border-slate-300 transition">Cancel</button>
+                <button type="button" id="confirmDeleteListButton" class="px-4 py-2 text-sm font-medium text-white bg-rose-500 hover:bg-rose-600 rounded-lg shadow-md transition">Yes, Delete List</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="joinListConfirmModal" class="modal-overlay fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden opacity-0 z-[70]">
+        <div class="modal-content bg-white p-6 sm:p-8 rounded-xl shadow-2xl w-full max-w-md transform scale-95">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-slate-700">Join Shared List</h3>
+                <button id="closeJoinListConfirmModalButton" class="text-slate-500 hover:text-slate-700">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <p id="joinListConfirmMessage" class="text-slate-600 mb-6">You've been invited to join a list. Would you like to accept?</p>
+            <div class="flex justify-end space-x-3">
+                <button type="button" id="cancelJoinListButton" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-200 hover:bg-slate-300 rounded-lg border border-slate-300 transition">Cancel</button>
+                <button type="button" id="confirmJoinListButton" class="px-4 py-2 text-sm font-medium text-white bg-violet-500 hover:bg-violet-600 rounded-lg shadow-md transition">Yes, Join List</button>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="fab-container">
+        <button id="uploadTranscriptFab" class="secondary-fab" title="Upload Transcript">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+        </button>
+        <input type="file" id="transcriptUploadInput" class="hidden" accept=".txt,.md">
+
+
+        <div id="fabMenu" class="fab-menu">
+            <div id="fabCreateTask" class="fab-menu-item">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                Create Task
+            </div>
+            <div id="fabCreateList" class="fab-menu-item">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V17a2 2 0 01-2 2z"></path></svg>
+                Create Shared List
+            </div>
+            <div id="fabInvitePeople" class="fab-menu-item">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                Invite People
+            </div>
+        </div>
+        <button id="fabButton" class="fab">
+            <svg class="fab-icon h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+        </button>
+    </div>
+
+<script type="module">
+    // --- Firebase v9+ (Modular) SDK Imports ---
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, writeBatch, getDocs, serverTimestamp, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- DOM Element References ---
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const mainContent = document.getElementById('mainContent');
+        const dashboardView = document.getElementById('dashboardView');
+        const openDashboardButton = document.getElementById('openDashboardButton');
+        const openNudgeCornerButton = document.getElementById('openNudgeCornerButton');
+        const openDailyFocusButton = document.getElementById('openDailyFocusButton');
+        const openRemindersButton = document.getElementById('openRemindersButton');
+        const openSettingsButton = document.getElementById('openSettingsButton');
+        const sidebarItems = document.querySelectorAll('.sidebar-item');
+        const invitesContainer = document.getElementById('invites-container');
+
+        const personalTaskListEl = document.getElementById('personalTaskList');
+        const sharedTaskListEl = document.getElementById('sharedTaskList');
+
+        const fabButton = document.getElementById('fabButton');
+        const fabMenu = document.getElementById('fabMenu');
+        const fabCreateTask = document.getElementById('fabCreateTask');
+        const fabCreateList = document.getElementById('fabCreateList');
+        const fabInvitePeople = document.getElementById('fabInvitePeople');
+        const uploadTranscriptFab = document.getElementById('uploadTranscriptFab');
+        const transcriptUploadInput = document.getElementById('transcriptUploadInput');
+
+        const addPersonalTaskButton = document.getElementById('addPersonalTaskButton');
+        const addTaskModal = document.getElementById('addTaskModal');
+        const addTaskModalTitle = document.getElementById('addTaskModalTitle');
+        const closeTaskModalButton = document.getElementById('closeTaskModalButton');
+        const cancelTaskButton = document.getElementById('cancelTaskButton');
+        const taskForm = document.getElementById('taskForm');
+        const taskFormSubmitButton = document.getElementById('taskFormSubmitButton');
+        const assigneeFieldContainer = document.getElementById('assigneeFieldContainer');
+        const statusFieldContainer = document.getElementById('statusFieldContainer');
+        const taskStatusSelect = document.getElementById('taskStatus');
+        const aiSuggestStatusButton = document.getElementById('aiSuggestStatusButton');
+        const taskAssigneeInput = document.getElementById('taskAssignee');
+
+        const createTaskListModal = document.getElementById('createTaskListModal');
+        const closeTaskListModalButton = document.getElementById('closeTaskListModalButton');
+        const taskListForm = document.getElementById('taskListForm');
+        const cancelTaskListButton = document.getElementById('cancelTaskListButton');
+        const taskListNameInput = document.getElementById('taskListNameInput');
+
+        const invitePeopleModal = document.getElementById('invitePeopleModal');
+        const closeInviteModalButton = document.getElementById('closeInviteModalButton');
+        const inviteForm = document.getElementById('inviteForm');
+        const cancelInviteButton = document.getElementById('cancelInviteButton');
+        const inviteToListSelect = document.getElementById('inviteToListSelect');
+        const inviteEmailInput = document.getElementById('inviteEmailInput');
+        const copyInviteLinkButton = document.getElementById('copyInviteLinkButton');
+
+        const nudgeCornerModal = document.getElementById('nudgeCornerModal');
+        const closeNudgeModalButton = document.getElementById('closeNudgeModalButton');
+        const nudgeForm = document.getElementById('nudgeForm');
+        const nudgeUserSelect = document.getElementById('nudgeUserSelect');
+        const nudgeTaskSelect = document.getElementById('nudgeTaskSelect');
+        const nudgeMessage = document.getElementById('nudgeMessage');
+        const cancelNudgeButton = document.getElementById('cancelNudgeButton');
+
+        const dailyFocusModal = document.getElementById('dailyFocusModal');
+        const closeDailyFocusModalButton = document.getElementById('closeDailyFocusModalButton');
+        const dailyFocusTasksArea = document.getElementById('dailyFocusTasksArea');
+
+        const remindersModal = document.getElementById('remindersModal');
+        const closeRemindersModalButton = document.getElementById('closeRemindersModalButton');
+        const dueTodayTasksList = document.getElementById('dueTodayTasksList');
+        const nudgesReceivedList = document.getElementById('nudgesReceivedList');
+
+        const settingsModal = document.getElementById('settingsModal');
+        const closeSettingsModalButton = document.getElementById('closeSettingsModalButton');
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const emailNotificationToggle = document.getElementById('emailNotificationToggle');
+        const nudgeNotificationToggle = document.getElementById('nudgeNotificationToggle');
+        const languageSelect = document.getElementById('languageSelect');
+        const saveSettingsButton = document.getElementById('saveSettingsButton');
+        const settingsUserEmail = document.getElementById('settingsUserEmail');
+        const settingsUserId = document.getElementById('settingsUserId');
+        const settingsLogoutButton = document.getElementById('settingsLogoutButton');
+        const deleteAccountButton = document.getElementById('deleteAccountButton');
+        
+        const joinListConfirmModal = document.getElementById('joinListConfirmModal');
+        const closeJoinListConfirmModalButton = document.getElementById('closeJoinListConfirmModalButton');
+        const cancelJoinListButton = document.getElementById('cancelJoinListButton');
+        const confirmJoinListButton = document.getElementById('confirmJoinListButton');
+        const joinListConfirmMessage = document.getElementById('joinListConfirmMessage');
+        let listToJoinId = null;
+
+        // Transcript Upload Modal Elements
+        const transcriptOptionsModal = document.getElementById('transcriptOptionsModal');
+        const closeTranscriptOptionsModalButton = document.getElementById('closeTranscriptOptionsModalButton');
+        const cancelTranscriptOptionsButton = document.getElementById('cancelTranscriptOptionsButton');
+        const transcriptOptionsForm = document.getElementById('transcriptOptionsForm');
+        const processTranscriptButton = document.getElementById('processTranscriptButton');
+        const uploadedFileNameSpan = document.getElementById('uploadedFileName');
+        const newTranscriptListNameContainer = document.getElementById('newTranscriptListNameContainer');
+        const newTranscriptListNameInput = document.getElementById('newTranscriptListName');
+        const existingListForTranscriptContainer = document.getElementById('existingListForTranscriptContainer');
+        const existingListSelectForTranscript = document.getElementById('existingListSelectForTranscript');
+        const transcriptActionNewListRadio = document.getElementById('transcriptActionNewList');
+        const transcriptActionExistingListRadio = document.getElementById('transcriptActionExistingList');
+        const transcriptActionPersonalTaskRadio = document.getElementById('transcriptActionPersonalTasks');
+
+        // Delete List Confirmation Modal Elements
+        const deleteListConfirmModal = document.getElementById('deleteListConfirmModal');
+        const closeDeleteListConfirmModalButton = document.getElementById('closeDeleteListConfirmModalButton');
+        const cancelDeleteListButton = document.getElementById('cancelDeleteListButton');
+        const confirmDeleteListButton = document.getElementById('confirmDeleteListButton');
+        const deleteListConfirmMessage = document.getElementById('deleteListConfirmMessage');
+        let listToDelete = null;
+
+        // --- Firebase & App State ---
+        let app, db, auth, analytics;
+        let currentUserId, currentUserEmail;
+        let unsubscribePersonalTasks, unsubscribeSharedLists, unsubscribeInvites, unsubscribeNudges;
+        
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        let isEditMode = false;
+        let currentEditingTask = null; // { id, data, listId? }
+
+        let currentTaskCreationTarget = 'personal';
+        let currentTargetListId = null;
+        let currentUploadedFile = null;
+
+        // --- Local Data Store (mirrors Firestore for UI rendering) ---
+        let taskDataStore = {
+            lists: [],
+            myPersonalTasks: [],
+            invites: [],
+            nudgesReceived: []
+        };
+        
+        // --- CONFIGURATION ---
+        const firebaseConfig = {
+            apiKey: "",
+            authDomain: "",
+            projectId: "",
+            storageBucket: "",
+            messagingSenderId: "",
+            appId: "",
+            measurementId: ""
+        };
+        
+        const GEMINI_API_KEY = "";
+
+        // --- Sidebar Toggle Functionality ---
+        function updateSidebarTogglePosition() {
+            sidebarToggle.style.left = '1rem';
+        }
+
+        function openSidebar() {
+            if (sidebar.classList.contains('collapsed')) {
+                sidebar.classList.remove('collapsed');
+                mainContent.classList.remove('sidebar-collapsed');
+                updateSidebarTogglePosition();
+            }
+        }
+
+        function collapseSidebar() {
+            if (!sidebar.classList.contains('collapsed')) {
+                sidebar.classList.add('collapsed');
+                mainContent.classList.add('sidebar-collapsed');
+                updateSidebarTogglePosition();
+            }
+        }
+
+        function toggleSidebar() {
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('sidebar-collapsed');
+            updateSidebarTogglePosition();
+        }
+        sidebarToggle.addEventListener('click', toggleSidebar);
+
+        // --- Sidebar Navigation ---
+        function setActiveSidebarItem(selectedItem) {
+            sidebarItems.forEach(item => item.classList.remove('active'));
+            if (selectedItem) {
+                selectedItem.classList.add('active');
+            }
+        }
+
+        openDashboardButton.addEventListener('click', () => {
+            dashboardView.style.display = 'flex';
+            setActiveSidebarItem(openDashboardButton);
+            closeAllModals();
+        });
+
+        openNudgeCornerButton.addEventListener('click', () => {
+            populateNudgeUserSelect();
+            openModal(nudgeCornerModal);
+            setActiveSidebarItem(openNudgeCornerButton);
+        });
+
+        openDailyFocusButton.addEventListener('click', () => {
+            populateDailyFocusTasks();
+            openModal(dailyFocusModal);
+            setActiveSidebarItem(openDailyFocusButton);
+        });
+
+        openRemindersButton.addEventListener('click', () => {
+            populateReminders();
+            openModal(remindersModal);
+            setActiveSidebarItem(openRemindersButton);
+        });
+
+        openSettingsButton.addEventListener('click', () => {
+            openModal(settingsModal);
+            setActiveSidebarItem(openSettingsButton);
+        });
+
+        // --- Generic Modal Open/Close Functions ---
+        function openModal(modalElement, taskTargetType = 'personal', contextId = null, taskToEdit = null) {
+            closeAllModals(); // Close any other open modals first
+            currentTaskCreationTarget = taskTargetType;
+            currentTargetListId = (taskTargetType === 'sharedList' && !taskToEdit) ? contextId : null;
+
+            if (modalElement === addTaskModal) {
+                taskForm.reset();
+                if (taskToEdit) { // Editing existing task
+                    isEditMode = true;
+                    currentEditingTask = taskToEdit;
+                    addTaskModalTitle.textContent = 'Edit Task';
+                    taskFormSubmitButton.textContent = 'Save Changes';
+
+                    document.getElementById('taskTitle').value = taskToEdit.data.title ?? '';
+                    document.getElementById('taskDescription').value = taskToEdit.data.description ?? '';
+                    document.getElementById('taskDueDate').value = taskToEdit.data.dueDate ?? '';
+
+                    const isSharedTaskEdit = !!taskToEdit.listId;
+                    if (isSharedTaskEdit) {
+                        assigneeFieldContainer.classList.remove('hidden');
+                        statusFieldContainer.classList.remove('hidden');
+                        taskAssigneeInput.value = taskToEdit.data.assignee ?? '';
+                        taskStatusSelect.value = taskToEdit.data.status ?? 'todo';
+                        currentTargetListId = taskToEdit.listId;
+                    } else { // Personal task being edited
+                        assigneeFieldContainer.classList.add('hidden');
+                        statusFieldContainer.classList.add('hidden');
+                    }
+                } else { // Adding new task
+                    isEditMode = false;
+                    currentEditingTask = null;
+                    taskFormSubmitButton.textContent = 'Add Task';
+
+                    if (taskTargetType === 'personal') {
+                        addTaskModalTitle.textContent = 'Add Personal Task';
+                        assigneeFieldContainer.classList.add('hidden');
+                        statusFieldContainer.classList.add('hidden');
+                    } else { // Adding to shared list
+                        const list = taskDataStore.lists.find(l => l.id === contextId);
+                        addTaskModalTitle.textContent = `Add Task to "${list ? list.data.name : 'Shared List'}"`;
+                        assigneeFieldContainer.classList.remove('hidden');
+                        statusFieldContainer.classList.remove('hidden');
+                        taskStatusSelect.value = 'todo';
+                        currentTargetListId = contextId;
+                    }
+                }
+            } else if (modalElement === invitePeopleModal) {
+                updateInviteToListSelect(contextId); // contextId is listId here
+            } else if (modalElement === transcriptOptionsModal) {
+                if (transcriptActionNewListRadio.checked) {
+                    newTranscriptListNameContainer.classList.remove('hidden');
+                    existingListForTranscriptContainer.classList.add('hidden');
+                    if(newTranscriptListNameInput) newTranscriptListNameInput.focus();
+                } else if (transcriptActionExistingListRadio.checked) {
+                    newTranscriptListNameContainer.classList.add('hidden');
+                    existingListForTranscriptContainer.classList.remove('hidden');
+                } else { // personalTasks
+                    newTranscriptListNameContainer.classList.add('hidden');
+                    existingListForTranscriptContainer.classList.add('hidden');
+                }
+            }
+
+            modalElement.classList.remove('hidden');
+            setTimeout(() => {
+                modalElement.classList.remove('opacity-0');
+                const content = modalElement.querySelector('.modal-content');
+                if (content) content.classList.remove('scale-95');
+            }, 10);
+            if (fabMenu.classList.contains('active')) toggleFabMenu();
+        }
+
+        function closeModal(modalElement) {
+            if (!modalElement || modalElement.classList.contains('hidden')) return;
+            modalElement.classList.add('opacity-0');
+            const content = modalElement.querySelector('.modal-content');
+            if(content) content.classList.add('scale-95');
+
+            setTimeout(() => {
+                modalElement.classList.add('hidden');
+                const form = modalElement.querySelector('form');
+                if (form) form.reset();
+
+                if (modalElement === addTaskModal) {
+                    isEditMode = false;
+                    currentEditingTask = null;
+                    addTaskModalTitle.textContent = 'Add New Task';
+                    taskFormSubmitButton.textContent = 'Add Task';
+                }
+                if (modalElement === nudgeCornerModal) {
+                    nudgeTaskSelect.innerHTML = '<option value="">Select a user first</option>';
+                    nudgeTaskSelect.disabled = true;
+                }
+                if (modalElement === transcriptOptionsModal) {
+                    transcriptUploadInput.value = '';
+                    currentUploadedFile = null;
+                    uploadedFileNameSpan.textContent = 'N/A';
+                    existingListForTranscriptContainer.classList.add('hidden');
+                    newTranscriptListNameContainer.classList.add('hidden');
+                    if(newTranscriptListNameInput) newTranscriptListNameInput.value = '';
+                }
+                if (modalElement === deleteListConfirmModal) {
+                    listToDelete = null;
+                }
+                if (modalElement === joinListConfirmModal) {
+                    listToJoinId = null;
+                }
+                currentTargetListId = null;
+            }, 300);
+        }
+
+        function closeAllModals() {
+            document.querySelectorAll('.modal-overlay').forEach(modal => closeModal(modal));
+        }
+
+        // --- FAB Menu Handling ---
+        function toggleFabMenu() {
+            fabButton.classList.toggle('active');
+            fabMenu.classList.toggle('active');
+        }
+        fabButton.addEventListener('click', toggleFabMenu);
+        document.addEventListener('click', (event) => {
+            if (!fabButton.contains(event.target) && !fabMenu.contains(event.target) && fabMenu.classList.contains('active')) {
+                toggleFabMenu();
+            }
+        });
+
+        // --- FAB Menu Item Actions & Personal Task Button ---
+        fabCreateTask.addEventListener('click', () => openModal(addTaskModal, 'personal'));
+        addPersonalTaskButton.addEventListener('click', () => openModal(addTaskModal, 'personal'));
+        fabCreateList.addEventListener('click', () => openModal(createTaskListModal));
+        fabInvitePeople.addEventListener('click', () => {
+            updateInviteToListSelect();
+            openModal(invitePeopleModal);
+        });
+
+        // --- Transcript Upload Feature ---
+        uploadTranscriptFab.addEventListener('click', () => {
+            transcriptUploadInput.click();
+        });
+
+        transcriptUploadInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                currentUploadedFile = file;
+                uploadedFileNameSpan.textContent = file.name;
+                populateExistingListSelectForTranscript();
+                openModal(transcriptOptionsModal);
+                transcriptActionNewListRadio.checked = true;
+                newTranscriptListNameContainer.classList.remove('hidden');
+                if(newTranscriptListNameInput) newTranscriptListNameInput.focus();
+                existingListForTranscriptContainer.classList.add('hidden');
+            }
+        });
+
+        [transcriptActionNewListRadio, transcriptActionExistingListRadio, transcriptActionPersonalTaskRadio].forEach(radio => {
+            if (radio) {
+                radio.addEventListener('change', () => {
+                    newTranscriptListNameContainer.classList.toggle('hidden', !transcriptActionNewListRadio.checked);
+                    existingListForTranscriptContainer.classList.toggle('hidden', !transcriptActionExistingListRadio.checked);
+                });
+            }
+        });
+        
+        closeTranscriptOptionsModalButton.addEventListener('click', () => closeModal(transcriptOptionsModal));
+        cancelTranscriptOptionsButton.addEventListener('click', () => closeModal(transcriptOptionsModal));
+        transcriptOptionsModal.addEventListener('click', (event) => {
+            if(event.target === transcriptOptionsModal) closeModal(transcriptOptionsModal);
+        });
+
+        transcriptOptionsForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!currentUploadedFile) {
+                showCustomAlert('No file selected. Please choose a file to process.', 'error');
+                return;
+            }
+
+            const originalButtonText = processTranscriptButton.innerHTML;
+            processTranscriptButton.innerHTML = `<svg class="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Processing...`;
+            processTranscriptButton.disabled = true;
+
+            try {
+                const textContent = await currentUploadedFile.text();
+                const prompt = `Based on the following meeting transcript, extract a list of action items. For each action item, provide a concise task title, a brief description, a potential assignee if mentioned (as an email if possible, otherwise as initials), and a deadline if specified (in YYYY-MM-DD format). The output must be a valid JSON array of objects. Here is the transcript:\n\n---\n${textContent}\n---`;
+
+                const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = {
+                    contents: chatHistory
+                };
+                
+                const apiKey = GEMINI_API_KEY; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                let result;
+                try {
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error("❌ AI API Error Response:", errorText);
+                        let errorMessage = `AI processing failed with status ${response.status}.`;
+                        try {
+                            const errorJson = JSON.parse(errorText);
+                            errorMessage = errorJson.error?.message || errorMessage;
+                        } catch (e) { /* Ignore if error response is not JSON */ }
+                        throw new Error(errorMessage);
+                    }
+                    result = await response.json();
+                    console.log("✅ Valid response JSON:", result);
+                } catch (err) {
+                    // This block will catch errors if response.json() fails
+                    const rawText = await (response ? response.text() : Promise.resolve("No response object"));
+                    console.error("❌ Failed to parse JSON. Raw response:", rawText);
+                    throw new Error("AI response did not contain a valid JSON object or array.");
+                }
+
+                let jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!jsonText) {
+                    console.error("❌ Gemini response is missing the expected text part. Full response:", result);
+                    throw new Error("AI response format is invalid.");
+                }
+                
+                // --- ROBUST JSON PARSING ---
+                const startIndex = jsonText.indexOf('[');
+                const endIndex = jsonText.lastIndexOf(']');
+                if (startIndex === -1 || endIndex === -1) {
+                     // If no array is found, try to find a single object
+                    const objStartIndex = jsonText.indexOf('{');
+                    const objEndIndex = jsonText.lastIndexOf('}');
+                    if(objStartIndex !== -1 && objEndIndex !== -1) {
+                        jsonText = `[${jsonText.substring(objStartIndex, objEndIndex + 1)}]`;
+                    } else {
+                        throw new Error("AI response did not contain a valid JSON object or array.");
+                    }
+                } else {
+                    jsonText = jsonText.substring(startIndex, endIndex + 1);
+                }
+                // --- END ROBUST JSON PARSING ---
+
+                const parsedJson = JSON.parse(jsonText);
+                const generatedTasks = Array.isArray(parsedJson) ? parsedJson : (parsedJson.tasks || []);
+
+
+                if (generatedTasks.length === 0) {
+                    showCustomAlert('AI could not identify any tasks in the transcript.', 'info');
+                    return;
+                }
+
+                const action = transcriptOptionsForm.elements.transcriptAction.value;
+                const batch = writeBatch(db);
+
+                if (action === 'personalTasks') {
+                    const collectionRef = collection(db, `artifacts/${appId}/users/${currentUserId}/personalTasks`);
+                    generatedTasks.forEach(task => {
+                        const docRef = doc(collectionRef);
+                        batch.set(docRef, { ...task, completed: false, createdAt: serverTimestamp() });
+                    });
+                } else if (action === 'newList') {
+                    const listName = newTranscriptListNameInput.value.trim();
+                    if (!listName) throw new Error('New list name is required.');
+                    
+                    const listCollectionRef = collection(db, `artifacts/${appId}/public/data/sharedLists`);
+                    const newListDocRef = doc(listCollectionRef);
+                    batch.set(newListDocRef, {
+                        name: listName,
+                        owner: currentUserEmail,
+                        members: [currentUserEmail],
+                        createdAt: serverTimestamp()
+                    });
+                    
+                    generatedTasks.forEach(task => {
+                        const taskDocRef = doc(collection(db, newListDocRef.path, 'tasks'));
+                        batch.set(taskDocRef, { ...task, status: 'todo', createdAt: serverTimestamp() });
+                    });
+                } else if (action === 'existingList') {
+                    const listId = existingListSelectForTranscript.value;
+                    if (!listId) throw new Error('An existing list must be selected.');
+                    
+                    const taskCollectionRef = collection(db, `artifacts/${appId}/public/data/sharedLists/${listId}/tasks`);
+                    generatedTasks.forEach(task => {
+                        const docRef = doc(taskCollectionRef);
+                        batch.set(docRef, { ...task, status: 'todo', createdAt: serverTimestamp() });
+                    });
+                }
+
+                await batch.commit();
+                showCustomAlert(`Successfully processed transcript and created ${generatedTasks.length} tasks!`, 'success');
+
+            } catch (err) {
+                console.error("Transcript processing error:", err);
+                showCustomAlert(`Error processing transcript: ${err.message}`, 'error');
+            } finally {
+                processTranscriptButton.innerHTML = originalButtonText;
+                processTranscriptButton.disabled = false;
+                closeModal(transcriptOptionsModal);
+            }
+        });
+
+        function populateExistingListSelectForTranscript() {
+            existingListSelectForTranscript.innerHTML = '';
+            if (taskDataStore.lists.length === 0) {
+                const option = document.createElement('option');
+                option.value = "";
+                option.textContent = "No shared lists available";
+                existingListSelectForTranscript.appendChild(option);
+                existingListSelectForTranscript.disabled = true;
+                if(transcriptActionExistingListRadio) transcriptActionExistingListRadio.disabled = true;
+            } else {
+                if(transcriptActionExistingListRadio) transcriptActionExistingListRadio.disabled = false;
+                existingListSelectForTranscript.disabled = false;
+                taskDataStore.lists.forEach(list => {
+                    const option = document.createElement('option');
+                    option.value = list.id;
+                    option.textContent = list.data.name;
+                    existingListSelectForTranscript.appendChild(option);
+                });
+            }
+        }
+
+        // --- Dashboard Rendering ---
+        function renderAll() {
+            renderMyTasks();
+            renderSharedLists();
+            populateExistingListSelectForTranscript();
+            updateInviteToListSelect();
+            renderInvites();
+            renderNudges();
+        }
+
+        // --- Rendering Shared Lists and their Tasks on Dashboard ---
+        function renderSharedLists() {
+            sharedTaskListEl.innerHTML = ""; // Clear previous lists
+            if (taskDataStore.lists.length === 0) {
+                sharedTaskListEl.innerHTML = `<p class="placeholder-text text-slate-500 p-4 text-center">No shared lists yet. Click the '+' button to create one!</p>`;
+            } else {
+                taskDataStore.lists.forEach(list => {
+                    const listContainer = document.createElement('div');
+                    listContainer.className = 'shared-list-container';
+                    const listHeader = document.createElement('div');
+                    listHeader.className = 'shared-list-header';
+
+                    const listTitle = document.createElement('h3');
+                    listTitle.className = 'text-2xl font-semibold text-sky-600';
+                    listTitle.textContent = list.data.name;
+                    listHeader.appendChild(listTitle);
+
+                    const buttonsAndMembersContainer = document.createElement('div');
+                    buttonsAndMembersContainer.className = 'shared-list-header-buttons';
+
+                    const addToListButton = document.createElement('button');
+                    addToListButton.className = 'bg-sky-500 hover:bg-sky-600 text-white font-medium py-1 px-3 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center text-xs';
+                    addToListButton.innerHTML = `<svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>Add Task`;
+                    addToListButton.addEventListener('click', () => openModal(addTaskModal, 'sharedList', list.id));
+                    buttonsAndMembersContainer.appendChild(addToListButton);
+
+                    const inviteButton = document.createElement('button');
+                    inviteButton.className = 'bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-1 px-3 rounded-md shadow-sm transition duration-150 ease-in-out flex items-center text-xs';
+                    inviteButton.innerHTML = `<svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>Invite`;
+                    inviteButton.addEventListener('click', () => {
+                        openModal(invitePeopleModal, 'sharedList', list.id);
+                    });
+                    buttonsAndMembersContainer.appendChild(inviteButton);
+                    
+                    if (list.data.members && list.data.members.length > 0) {
+                        const membersContainer = document.createElement('div');
+                        membersContainer.className = 'members-container';
+                        list.data.members.forEach(memberEmail => {
+                            const memberInitials = document.createElement('span');
+                            memberInitials.className = 'member-initials';
+                            memberInitials.textContent = (memberEmail.split('@')[0].substring(0, 2) || '??').toUpperCase();
+                            memberInitials.title = memberEmail; // Tooltip for full email
+                            membersContainer.appendChild(memberInitials);
+                        });
+                        buttonsAndMembersContainer.appendChild(membersContainer);
+                    }
+
+                    const deleteListButton = document.createElement('button');
+                    deleteListButton.className = 'list-delete-button text-xs p-1 rounded hover:bg-rose-100';
+                    deleteListButton.title = "Delete List";
+                    deleteListButton.innerHTML = `<svg class="w-4 h-4 text-rose-500 hover:text-rose-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>`;
+                    deleteListButton.addEventListener('click', () => openDeleteListConfirmModal(list.id, list.data.name));
+                    buttonsAndMembersContainer.appendChild(deleteListButton);
+
+                    listHeader.appendChild(buttonsAndMembersContainer);
+                    listContainer.appendChild(listHeader);
+
+                    const tasksContainer = document.createElement('div');
+                    tasksContainer.className = 'shared-list-tasks-container space-y-3';
+                    
+                    const statusOrder = { 'highpriority': 0, 'inprogress': 1, 'review': 2, 'todo': 3, 'completed': 4 };
+                    const sortedTasks = [...(list.tasks || [])].sort((a, b) => {
+                        const statusA = statusOrder[a.data.status] ?? 99;
+                        const statusB = statusOrder[b.data.status] ?? 99;
+                        if (statusA !== statusB) return statusA - statusB;
+                        
+                        const dateA = a.data.dueDate ? new Date(a.data.dueDate) : Infinity;
+                        const dateB = b.data.dueDate ? new Date(b.data.dueDate) : Infinity;
+                        if (dateA === Infinity && dateB !== Infinity) return 1;
+                        if (dateA !== Infinity && dateB === Infinity) return -1;
+                        return dateA - dateB;
+                    });
+
+                    if (sortedTasks.length === 0) {
+                        tasksContainer.innerHTML = `<p class="text-slate-500 p-3 text-sm">No tasks in this list yet.</p>`;
+                    } else {
+                        sortedTasks.forEach(task => {
+                            const taskElement = createTaskElementForSharedList(task, list.id);
+                            if (taskElement) {
+                                tasksContainer.appendChild(taskElement);
+                            }
+                        });
+                    }
+                    listContainer.appendChild(tasksContainer);
+                    sharedTaskListEl.appendChild(listContainer);
+                });
+            }
+        }
+
+        // --- Rendering Personal Tasks on Dashboard ---
+        function renderMyTasks() {
+            personalTaskListEl.innerHTML = ""; // Clear previous tasks
+            if (taskDataStore.myPersonalTasks.length === 0) {
+                personalTaskListEl.innerHTML = `<p class="placeholder-text p-4 text-center text-slate-500">No personal tasks yet. Add some!</p>`;
+                return;
+            }
+
+            const sortedPersonalTasks = [...taskDataStore.myPersonalTasks].sort((a, b) => {
+                if (a.data.completed && !b.data.completed) return 1;
+                if (!a.data.completed && b.data.completed) return -1;
+                if (!a.data.completed && !b.data.completed) {
+                    const dateA = a.data.dueDate ? new Date(a.data.dueDate) : Infinity;
+                    const dateB = b.data.dueDate ? new Date(b.data.dueDate) : Infinity;
+                    return dateA - dateB;
+                }
+                return 0;
+            });
+
+            sortedPersonalTasks.forEach(task => {
+                console.log("📦 Rendering Personal Task:", task); // DEBUG LOG
+                const taskItem = document.createElement('div');
+                taskItem.className = 'my-task-item'; 
+                if (task.data.completed) {
+                    taskItem.classList.add('completed');
+                }
+                taskItem.setAttribute('data-task-id', task.id);
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = task.data.completed;
+                checkbox.addEventListener('change', (e) => {
+                    togglePersonalTaskCompletion(task.id, e.target.checked);
+                });
+                taskItem.appendChild(checkbox);
+
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'flex-grow ml-3 task-title-desc';
+                
+                // --- SAFE RENDERING LOGIC ---
+                const title = task.data.title || task.data.task || "Untitled Task";
+                const description = task.data.description || "";
+                const sourceList = task.data.sourceList ? `<p class="text-xs text-sky-600 mt-1">From list: <b>${task.data.sourceList}</b></p>` : '';
+
+                infoDiv.innerHTML = `
+                    <h4 class="font-medium text-slate-700">${title}</h4>
+                    ${description ? `<p class="text-xs text-slate-500 mt-1">${description}</p>` : ''}
+                    ${sourceList}
+                `;
+                taskItem.appendChild(infoDiv);
+
+                const dueDateSpan = document.createElement('span');
+                dueDateSpan.className = 'text-xs text-slate-500 ml-auto whitespace-nowrap task-due-date';
+                const dueDate = task.data.dueDate || task.data.due_date || task.data.deadline;
+                dueDateSpan.textContent = dueDate ? `Due: ${formatDate(dueDate)}` : 'No due date';
+                // --- END SAFE RENDERING LOGIC ---
+
+                const taskActionsContainer = document.createElement('div');
+                taskActionsContainer.className = 'task-actions-container';
+                taskActionsContainer.appendChild(dueDateSpan);
+
+                const editBtn = document.createElement('button');
+                editBtn.className = 'task-action-button task-edit-button';
+                editBtn.title = "Edit Task";
+                editBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>`;
+                editBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openModal(addTaskModal, 'personal', null, task);
+                });
+                taskActionsContainer.appendChild(editBtn);
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'task-action-button task-delete-button';
+                deleteBtn.title = "Delete Task";
+                deleteBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>`;
+                deleteBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deletePersonalTask(task.id);
+                });
+                taskActionsContainer.appendChild(deleteBtn);
+                taskItem.appendChild(taskActionsContainer);
+
+                personalTaskListEl.appendChild(taskItem);
+            });
+        }
+
+        // --- Add/Edit Task Modal Handling (Firestore) ---
+        closeTaskModalButton.addEventListener('click', () => closeModal(addTaskModal));
+        cancelTaskButton.addEventListener('click', () => closeModal(addTaskModal));
+        addTaskModal.addEventListener('click', (e) => {
+            if (e.target === addTaskModal) closeModal(addTaskModal);
+        });
+
+        taskForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const title = document.getElementById('taskTitle').value.trim();
+            if (!title) {
+                showCustomAlert("Task title is required.", 'error');
+                return;
+            }
+
+            const description = document.getElementById('taskDescription').value.trim();
+            const dueDate = document.getElementById('taskDueDate').value;
+            
+            let payload = {
+                title,
+                description,
+                dueDate,
+                updatedAt: serverTimestamp()
+            };
+
+            try {
+                if (isEditMode && currentEditingTask) {
+                    // --- EDIT LOGIC ---
+                    let docRef;
+                    if (currentEditingTask.listId) { // Editing a shared task
+                        payload.assignee = taskAssigneeInput.value.trim();
+                        payload.status = taskStatusSelect.value;
+                        docRef = doc(db, `artifacts/${appId}/public/data/sharedLists/${currentEditingTask.listId}/tasks`, currentEditingTask.id);
+                    } else { // Editing a personal task
+                        docRef = doc(db, `artifacts/${appId}/users/${currentUserId}/personalTasks`, currentEditingTask.id);
+                    }
+                    await updateDoc(docRef, payload);
+                    showCustomAlert('Task updated successfully!', 'success');
+                } else {
+                    // --- CREATE LOGIC ---
+                    payload.createdAt = serverTimestamp();
+                    if (currentTaskCreationTarget === 'personal') {
+                        payload.completed = false;
+                        const collectionRef = collection(db, `artifacts/${appId}/users/${currentUserId}/personalTasks`);
+                        await addDoc(collectionRef, payload);
+                    } else { // Creating shared task
+                        payload.assignee = taskAssigneeInput.value.trim();
+                        payload.status = taskStatusSelect.value;
+                        const collectionRef = collection(db, `artifacts/${appId}/public/data/sharedLists/${currentTargetListId}/tasks`);
+                        await addDoc(collectionRef, payload);
+                    }
+                    showCustomAlert('Task added successfully!', 'success');
+                }
+                closeModal(addTaskModal);
+            } catch (err) {
+                console.error("Error saving task:", err);
+                showCustomAlert(`Failed to save task: ${err.message}`, 'error');
+            }
+        });
+        
+        // --- AI Status Suggestion (Gemini API) ---
+        if (aiSuggestStatusButton) {
+            aiSuggestStatusButton.addEventListener('click', async () => {
+                const taskTitle = document.getElementById('taskTitle').value.trim();
+                const taskDescription = document.getElementById('taskDescription').value.trim();
+
+                if (!taskTitle) {
+                    showCustomAlert('Please enter a task title for AI suggestion.', 'error');
+                    return;
+                }
+
+                const originalButtonContent = aiSuggestStatusButton.innerHTML;
+                aiSuggestStatusButton.innerHTML = `<svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="ml-2">Suggesting...</span>`;
+                aiSuggestStatusButton.disabled = true;
+
+                try {
+                    const prompt = `Based on the task title "${taskTitle}" and description "${taskDescription}", suggest the most appropriate status from this list: High Priority, To Do, In Progress, Review, Completed. Provide only the status name.`;
+                    const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                    const payload = { contents: chatHistory };
+                    const apiKey = GEMINI_API_KEY; // Use the dedicated Gemini key
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    let result;
+                    try {
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            console.error("❌ AI API Error Response:", errorText);
+                            let errorMessage = `AI suggestion failed with status ${response.status}.`;
+                            try {
+                                const errorJson = JSON.parse(errorText);
+                                errorMessage = errorJson.error?.message || errorMessage;
+                            } catch (e) { /* Ignore if error response is not JSON */ }
+                            throw new Error(errorMessage);
+                        }
+                        result = await response.json();
+                        console.log("✅ Valid response JSON:", result);
+                    } catch (err) {
+                        const raw = await response.text();
+                        console.error("❌ Failed to parse JSON. Raw response:", raw);
+                        throw new Error("AI response did not contain a valid JSON object or array.");
+                    }
+                    
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                    if (!text) {
+                        console.error("AI response structure is unexpected:", result);
+                        throw new Error("Could not find suggestion text in AI response.");
+                    }
+
+                    const suggestedStatusValue = text.replace(/\s+/g, '').toLowerCase();
+                    
+                    const isValidOption = [...taskStatusSelect.options].some(option => option.value === suggestedStatusValue);
+                    if (isValidOption) {
+                        taskStatusSelect.value = suggestedStatusValue;
+                        showCustomAlert(`AI suggested status: ${text}`, 'success');
+                    } else {
+                        throw new Error(`AI returned an invalid status: ${text}`);
+                    }
+                } catch (error) {
+                    console.error("AI Suggestion Error:", error);
+                    showCustomAlert(`AI suggestion failed: ${error.message}`, 'error');
+                } finally {
+                    aiSuggestStatusButton.innerHTML = originalButtonContent;
+                    aiSuggestStatusButton.disabled = false;
+                }
+            });
+        }
+
+        // --- Create Task List Modal Handling (Firestore) ---
+        closeTaskListModalButton.addEventListener('click', () => closeModal(createTaskListModal));
+        cancelTaskListButton.addEventListener('click', () => closeModal(createTaskListModal));
+        createTaskListModal.addEventListener('click', (event) => {
+            if (event.target === createTaskListModal) closeModal(createTaskListModal);
+        });
+
+        taskListForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const newListName = taskListNameInput.value.trim();
+            if (!newListName) {
+                showCustomAlert('List name is required.', 'error');
+                return;
+            }
+            
+            try {
+                const collectionRef = collection(db, `artifacts/${appId}/public/data/sharedLists`);
+                const newListDoc = await addDoc(collectionRef, {
+                    name: newListName,
+                    owner: currentUserEmail,
+                    members: [currentUserEmail],
+                    createdAt: serverTimestamp()
+                });
+                showCustomAlert(`Shared list "${newListName}" created!`, 'success');
+                closeModal(createTaskListModal);
+                // The onSnapshot listener will automatically render the new list.
+                // Open invite modal for the new list
+                setTimeout(() => openModal(invitePeopleModal, 'sharedList', newListDoc.id), 300);
+            } catch (error) {
+                console.error("Create list error:", error);
+                showCustomAlert(`Failed to create list: ${error.message}.`, 'error');
+            }
+        });
+
+        // --- Invite People Modal Handling (Firestore) ---
+        closeInviteModalButton.addEventListener('click', () => closeModal(invitePeopleModal));
+        cancelInviteButton.addEventListener('click', () => closeModal(invitePeopleModal));
+        invitePeopleModal.addEventListener('click', (event) => {
+            if (event.target === invitePeopleModal) closeModal(invitePeopleModal);
+        });
+
+        inviteForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const emailToInvite = inviteEmailInput.value.trim();
+            const listId = inviteToListSelect.value;
+            const listName = inviteToListSelect.options[inviteToListSelect.selectedIndex]?.text;
+
+            if (!emailToInvite || !listId) {
+                showCustomAlert('Email and a selected list are required.', 'error');
+                return;
+            }
+
+            try {
+                const invitesRef = collection(db, `artifacts/${appId}/public/data/invites`);
+                await addDoc(invitesRef, {
+                    listId: listId,
+                    listName: listName,
+                    from: currentUserEmail,
+                    to: emailToInvite,
+                    status: 'pending',
+                    createdAt: serverTimestamp()
+                });
+                showCustomAlert(`Invitation sent to ${emailToInvite} for "${listName}".`, 'success');
+                closeModal(invitePeopleModal);
+            } catch (error) {
+                console.error("Error sending invite:", error);
+                showCustomAlert(`Failed to send invite: ${error.message}`, 'error');
+            }
+        });
+        
+        copyInviteLinkButton.addEventListener('click', () => {
+            const listId = inviteToListSelect.value;
+            if (!listId) {
+                showCustomAlert('Please select a list to generate an invite link.', 'error');
+                return;
+            }
+            const inviteLink = `${window.location.origin}${window.location.pathname}?joinList=${listId}`;
+            
+            // Create a temporary textarea to copy the link
+            const textArea = document.createElement("textarea");
+            textArea.value = inviteLink;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showCustomAlert('Invite link copied to clipboard!', 'success');
+            } catch (err) {
+                showCustomAlert('Failed to copy link.', 'error');
+                console.error('Fallback: Oops, unable to copy', err);
+            }
+            document.body.removeChild(textArea);
+        });
+
+        function updateInviteToListSelect(selectedListId = null) {
+            inviteToListSelect.innerHTML = '';
+            const myOwnedLists = taskDataStore.lists.filter(list => list.data.owner === currentUserEmail);
+            if (myOwnedLists.length === 0) {
+                inviteToListSelect.innerHTML = '<option value="">No lists you own to invite to</option>';
+                inviteToListSelect.disabled = true;
+                return;
+            }
+            inviteToListSelect.disabled = false;
+            myOwnedLists.forEach(list => {
+                const option = document.createElement('option');
+                option.value = list.id;
+                option.textContent = list.data.name;
+                if (list.id === selectedListId) {
+                    option.selected = true;
+                }
+                inviteToListSelect.appendChild(option);
+            });
+        }
+
+        // --- Task Element Creation for Shared List on Dashboard ---
+        function createTaskElementForSharedList(task, listId) {
+            console.log("📦 Rendering Shared Task:", task); // DEBUG LOG
+            const taskItem = document.createElement('div');
+            taskItem.className = 'shared-list-task-item';
+
+            if (task.data.status === 'completed') {
+                taskItem.classList.add('completed');
+            }
+            taskItem.setAttribute('data-task-id', task.id);
+            taskItem.setAttribute('data-list-id', listId);
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = task.data.status === 'completed';
+            checkbox.addEventListener('change', (e) => {
+                toggleSharedTaskCompletion(listId, task.id, e.target.checked);
+            });
+            taskItem.appendChild(checkbox);
+
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'task-content';
+            
+            // --- SAFE RENDERING LOGIC ---
+            const title = task.data.title || task.data.task || "Untitled Task";
+            const description = task.data.description || "";
+            
+            contentDiv.innerHTML = `
+                <h4 class="font-medium text-slate-700">${title}</h4>
+                ${description ? `<p class="text-xs text-slate-500 mt-1">${description}</p>` : ''}
+            `;
+            taskItem.appendChild(contentDiv);
+
+            const metadataDiv = document.createElement('div');
+            metadataDiv.className = 'task-metadata';
+
+            let statusBadgeClass = 'status-todo', statusText = 'To Do', borderClass = 'border-todo';
+            if (task.data.status === 'highpriority') { statusBadgeClass = 'status-highpriority'; statusText = 'High Priority'; borderClass = 'border-highpriority';}
+            else if (task.data.status === 'inprogress') { statusBadgeClass = 'status-inprogress'; statusText = 'In Progress'; borderClass = 'border-inprogress';}
+            else if (task.data.status === 'review') { statusBadgeClass = 'status-review'; statusText = 'Review'; borderClass = 'border-review';}
+            else if (task.data.status === 'completed') { statusBadgeClass = 'status-completed'; statusText = 'Completed'; borderClass = 'border-completed';}
+            taskItem.classList.add(borderClass);
+
+            const statusBadge = `<span class="status-badge ${statusBadgeClass}">${statusText}</span>`;
+            const dueDate = task.data.dueDate || task.data.due_date || task.data.deadline;
+            const dueDateDisplay = dueDate ? `<span class="text-xs text-slate-500">Due: ${formatDate(dueDate)}</span>` : '<span class="text-xs text-slate-400">No due date</span>';
+            const assigneeDisplay = task.data.assignee ? `<span class="text-xs text-slate-500">Assignee: ${task.data.assignee.split('@')[0]}</span>` : '';
+            // --- END SAFE RENDERING LOGIC ---
+
+            metadataDiv.innerHTML = `${statusBadge}${dueDateDisplay}${assigneeDisplay}`;
+            taskItem.appendChild(metadataDiv);
+
+            const taskActionsContainer = document.createElement('div');
+            taskActionsContainer.className = 'task-actions-container';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'task-action-button task-edit-button';
+            editBtn.title = "Edit Task";
+            editBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>`;
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openModal(addTaskModal, 'sharedList', listId, { ...task, listId });
+            });
+            taskActionsContainer.appendChild(editBtn);
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'task-action-button task-delete-button';
+            deleteBtn.title = "Delete Task";
+            deleteBtn.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>`;
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteSharedTask(listId, task.id);
+            });
+            taskActionsContainer.appendChild(deleteBtn);
+            taskItem.appendChild(taskActionsContainer);
+
+            return taskItem;
+        }
+
+        // --- Task Completion Toggle Functions (Firestore) ---
+        async function togglePersonalTaskCompletion(taskId, isCompleted) {
+            const docRef = doc(db, `artifacts/${appId}/users/${currentUserId}/personalTasks`, taskId);
+            try {
+                await updateDoc(docRef, { completed: isCompleted });
+                showCustomAlert('Task status updated.', 'info');
+            } catch (err) {
+                console.error("Error updating personal task:", err);
+                showCustomAlert(`Error updating task: ${err.message}`, 'error');
+            }
+        }
+
+        async function toggleSharedTaskCompletion(listId, taskId, isChecked) {
+            const docRef = doc(db, `artifacts/${appId}/public/data/sharedLists/${listId}/tasks`, taskId);
+            const newStatus = isChecked ? 'completed' : 'todo';
+            try {
+                await updateDoc(docRef, { status: newStatus });
+                showCustomAlert('Task status updated.', 'info');
+            } catch (err) {
+                console.error("Error updating shared task:", err);
+                showCustomAlert(`Error updating task: ${err.message}`, 'error');
+            }
+        }
+
+        // --- Task Deletion Functions (Firestore) ---
+        async function deletePersonalTask(taskId) {
+            const docRef = doc(db, `artifacts/${appId}/users/${currentUserId}/personalTasks`, taskId);
+            try {
+                await deleteDoc(docRef);
+                showCustomAlert('Personal task deleted.', 'success');
+            } catch (error) {
+                console.error("Delete personal task error:", error);
+                showCustomAlert(`Error deleting task: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteSharedTask(listId, taskId) {
+            const docRef = doc(db, `artifacts/${appId}/public/data/sharedLists/${listId}/tasks`, taskId);
+            try {
+                await deleteDoc(docRef);
+                showCustomAlert('Shared task deleted.', 'success');
+            } catch (error) {
+                console.error("Delete shared task error:", error);
+                showCustomAlert(`Error deleting task: ${error.message}`, 'error');
+            }
+        }
+
+        // --- Shared List Deletion (Firestore) ---
+        function openDeleteListConfirmModal(listId, listName) {
+            listToDelete = { id: listId, name: listName };
+            deleteListConfirmMessage.textContent = `Are you sure you want to delete the list "${listName}"? This action cannot be undone.`;
+            openModal(deleteListConfirmModal);
+        }
+
+        async function deleteSharedListFromStore() {
+            if (!listToDelete) return;
+            const listRef = doc(db, `artifacts/${appId}/public/data/sharedLists`, listToDelete.id);
+            try {
+                await deleteDoc(listRef);
+                showCustomAlert(`List "${listToDelete.name}" deleted.`, 'success');
+                // Note: Subcollection 'tasks' is not auto-deleted. A cloud function is needed for robust cleanup.
+            } catch (error) {
+                console.error("Delete list error:", error);
+                showCustomAlert(`Error deleting list: ${error.message}`, 'error');
+            } finally {
+                closeModal(deleteListConfirmModal);
+            }
+        }
+
+        closeDeleteListConfirmModalButton.addEventListener('click', () => closeModal(deleteListConfirmModal));
+        cancelDeleteListButton.addEventListener('click', () => closeModal(deleteListConfirmModal));
+        confirmDeleteListButton.addEventListener('click', deleteSharedListFromStore);
+        deleteListConfirmModal.addEventListener('click', (event) => {
+            if (event.target === deleteListConfirmModal) closeModal(deleteListConfirmModal);
+        });
+
+        // --- Utility: Format Date ---
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString.includes('T') ? dateString : dateString + 'T00:00:00');
+            return date.toLocaleDateString(navigator.language || 'en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        // --- Nudge Corner Logic (Firestore) ---
+        closeNudgeModalButton.addEventListener('click', () => closeModal(nudgeCornerModal));
+        cancelNudgeButton.addEventListener('click', () => closeModal(nudgeCornerModal));
+        nudgeCornerModal.addEventListener('click', (event) => {
+            if (event.target === nudgeCornerModal) closeModal(nudgeCornerModal);
+        });
+
+        function getUniqueAssignees() {
+            const assignees = new Set();
+            taskDataStore.lists.forEach(list => {
+                (list.tasks || []).forEach(task => {
+                    if (task.data.assignee && task.data.assignee.trim() !== '' && task.data.assignee !== currentUserEmail) {
+                        assignees.add(task.data.assignee.trim());
+                    }
+                });
+            });
+            return Array.from(assignees).sort();
+        }
+
+        function populateNudgeUserSelect() {
+            const users = getUniqueAssignees();
+            nudgeUserSelect.innerHTML = '<option value="">Select a user</option>';
+            if (users.length === 0) {
+                nudgeUserSelect.innerHTML = '<option value="">No other users with assigned tasks</option>';
+                nudgeTaskSelect.disabled = true;
+                nudgeTaskSelect.innerHTML = '<option value="">No tasks</option>';
+                return;
+            }
+            users.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user;
+                option.textContent = user;
+                nudgeUserSelect.appendChild(option);
+            });
+            nudgeTaskSelect.disabled = true;
+            nudgeTaskSelect.innerHTML = '<option value="">Select a user first</option>';
+        }
+
+        nudgeUserSelect.addEventListener('change', (event) => {
+            const selectedUser = event.target.value;
+            nudgeTaskSelect.innerHTML = '';
+            if (!selectedUser) {
+                nudgeTaskSelect.disabled = true;
+                nudgeTaskSelect.innerHTML = '<option value="">Select a user first</option>';
+                return;
+            }
+
+            let tasksForUser = [];
+            taskDataStore.lists.forEach(list => {
+                (list.tasks || []).forEach(task => {
+                    if (task.data.assignee === selectedUser && task.data.status !== 'completed') {
+                        tasksForUser.push({
+                            id: task.id,
+                            title: task.data.title || "Untitled Task",
+                            listName: list.data.name
+                        });
+                    }
+                });
+            });
+
+            if (tasksForUser.length === 0) {
+                nudgeTaskSelect.disabled = true;
+                nudgeTaskSelect.innerHTML = '<option value="">No active tasks for this user</option>';
+            } else {
+                nudgeTaskSelect.disabled = false;
+                nudgeTaskSelect.innerHTML = '<option value="">Select a task</option>';
+                tasksForUser.forEach(task => {
+                    const option = document.createElement('option');
+                    option.value = task.title;
+                    option.textContent = `${task.title} (from ${task.listName})`;
+                    nudgeTaskSelect.appendChild(option);
+                });
+            }
+        });
+
+        nudgeForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const userToNudge = nudgeUserSelect.value;
+            const taskTitle = nudgeTaskSelect.value;
+            const message = nudgeMessage.value.trim();
+
+            if (!userToNudge || !taskTitle) {
+                showCustomAlert('Please select a user and a task to nudge.', 'error');
+                return;
+            }
+            
+            try {
+                const nudgeRef = collection(db, `artifacts/${appId}/public/data/nudges`);
+                await addDoc(nudgeRef, {
+                    from: currentUserEmail,
+                    to: userToNudge,
+                    taskTitle: taskTitle,
+                    message: message || `Friendly reminder about: ${taskTitle}`,
+                    isRead: false,
+                    createdAt: serverTimestamp()
+                });
+                showCustomAlert(`Nudge sent to ${userToNudge}!`, 'success');
+                closeModal(nudgeCornerModal);
+            } catch (error) {
+                console.error("Error sending nudge:", error);
+                showCustomAlert(`Failed to send nudge: ${error.message}`, 'error');
+            }
+        });
+
+        // --- Daily Focus & Reminders Logic ---
+        closeDailyFocusModalButton.addEventListener('click', () => closeModal(dailyFocusModal));
+        dailyFocusModal.addEventListener('click', (event) => {
+            if (event.target === dailyFocusModal) closeModal(dailyFocusModal);
+        });
+
+        function populateDailyFocusTasks() {
+            dailyFocusTasksArea.innerHTML = '';
+            let allTasks = [];
+            
+            taskDataStore.myPersonalTasks.forEach(task => {
+                if (task.data.dueDate && !task.data.completed) {
+                    allTasks.push({ ...task.data, id: task.id, listName: 'My Tasks' });
+                }
+            });
+
+            taskDataStore.lists.forEach(list => {
+                (list.tasks || []).forEach(task => {
+                    if (task.data.assignee === currentUserEmail && task.data.dueDate && task.data.status !== 'completed') {
+                        allTasks.push({ ...task.data, id: task.id, listName: list.data.name });
+                    }
+                });
+            });
+
+            allTasks.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+            const tasksToDisplay = allTasks.slice(0, 5);
+
+            if (tasksToDisplay.length === 0) {
+                dailyFocusTasksArea.innerHTML = '<p class="text-slate-500 text-center p-4">No upcoming tasks to focus on. Great job!</p>';
+                return;
+            }
+
+            tasksToDisplay.forEach(task => {
+                const taskElement = document.createElement('div');
+                taskElement.className = 'daily-focus-task-item';
+                taskElement.innerHTML = `
+                    <h5>${task.title}</h5>
+                    <p class="text-sm">Due: ${formatDate(task.dueDate)}</p>
+                    <p class="text-xs text-slate-400">List: ${task.listName}</p>
+                `;
+                dailyFocusTasksArea.appendChild(taskElement);
+            });
+        }
+
+        closeRemindersModalButton.addEventListener('click', () => closeModal(remindersModal));
+        remindersModal.addEventListener('click', (event) => {
+            if (event.target === remindersModal) closeModal(remindersModal);
+        });
+
+        function populateReminders() {
+            dueTodayTasksList.innerHTML = '';
+            const today = new Date();
+            const todayString = today.toISOString().split('T')[0];
+            let tasksDueTodayFound = false;
+
+            let allTasks = [];
+            taskDataStore.myPersonalTasks.forEach(t => allTasks.push({ ...t.data, listName: 'My Task' }));
+            taskDataStore.lists.forEach(l => {
+                (l.tasks || []).forEach(t => {
+                    if (t.data.assignee === currentUserEmail) {
+                        allTasks.push({ ...t.data, listName: l.data.name });
+                    }
+                });
+            });
+
+            allTasks.forEach(task => {
+                if (task.dueDate && task.dueDate.startsWith(todayString) && task.status !== 'completed' && !task.completed) {
+                    const item = document.createElement('div');
+                    item.className = 'reminder-item border-l-teal-500';
+                    item.innerHTML = `<h5>${task.title} (List: ${task.listName})</h5><p>Due: Today</p>`;
+                    dueTodayTasksList.appendChild(item);
+                    tasksDueTodayFound = true;
+                }
+            });
+
+            if (!tasksDueTodayFound) {
+                dueTodayTasksList.innerHTML = '<p class="text-slate-500">No tasks due today!</p>';
+            }
+            renderNudges(); // Nudges are rendered separately
+        }
+
+        // --- Settings Modal Logic ---
+        closeSettingsModalButton.addEventListener('click', () => closeModal(settingsModal));
+        settingsModal.addEventListener('click', (event) => {
+            if (event.target === settingsModal) closeModal(settingsModal);
+        });
+
+        function setupToggle(buttonId, initialState = false) {
+            const toggleButton = document.getElementById(buttonId);
+            if(!toggleButton) return;
+            const toggleBg = toggleButton.querySelector('.settings-toggle-bg');
+            const toggleDot = toggleButton.querySelector('.settings-toggle-dot');
+            let isChecked = initialState;
+
+            toggleBg.classList.toggle('checked', isChecked);
+            toggleDot.classList.toggle('checked', isChecked);
+
+            toggleButton.addEventListener('click', () => {
+                isChecked = !isChecked;
+                toggleBg.classList.toggle('checked', isChecked);
+                toggleDot.classList.toggle('checked', isChecked);
+                if (buttonId === 'darkModeToggle') {
+                    document.documentElement.classList.toggle('dark', isChecked);
+                    localStorage.setItem('darkMode', isChecked ? 'enabled' : 'disabled');
+                }
+            });
+        }
+        
+        saveSettingsButton.addEventListener('click', () => {
+            showCustomAlert(`Settings saved (Frontend only).`, 'success');
+            closeModal(settingsModal);
+        });
+
+        // --- Custom Alert/Message Box ---
+        function showCustomAlert(message, type = 'info') {
+            if (document.getElementById('customAlertBox')) {
+                document.getElementById('customAlertBox').remove();
+            }
+            const alertBox = document.createElement('div');
+            alertBox.id = 'customAlertBox';
+            let alertClasses = 'p-4 rounded-lg shadow-lg z-[200] transition-all duration-300 ease-in-out opacity-0 transform translate-x-full max-w-sm fixed top-5 right-5 text-sm';
+            if (type === 'success') alertClasses += ' bg-emerald-100 border border-emerald-400 text-emerald-700';
+            else if (type === 'error') alertClasses += ' bg-rose-100 border border-rose-400 text-rose-700';
+            else alertClasses += ' bg-sky-100 border border-sky-400 text-sky-700';
+
+            alertBox.className = alertClasses;
+            alertBox.textContent = message;
+            document.body.appendChild(alertBox);
+            setTimeout(() => {
+                alertBox.classList.remove('opacity-0', 'translate-x-full');
+                alertBox.classList.add('opacity-100', 'translate-x-0');
+            }, 10);
+            setTimeout(() => {
+                alertBox.classList.remove('opacity-100', 'translate-x-0');
+                alertBox.classList.add('opacity-0', 'translate-x-full');
+                setTimeout(() => alertBox.remove(), 300);
+            }, 3500);
+        }
+
+        // --- Firestore Real-time Data Listeners ---
+        function setupFirestoreListeners(user) {
+            if (!user) return;
+            currentUserId = user.uid;
+            currentUserEmail = user.email;
+
+            // Clear existing listeners
+            if (unsubscribePersonalTasks) unsubscribePersonalTasks();
+            if (unsubscribeSharedLists) unsubscribeSharedLists();
+            if (unsubscribeInvites) unsubscribeInvites();
+            if (unsubscribeNudges) unsubscribeNudges();
+
+            // 1. Listener for Personal Tasks
+            const personalTasksRef = collection(db, `artifacts/${appId}/users/${user.uid}/personalTasks`);
+            unsubscribePersonalTasks = onSnapshot(personalTasksRef, (snapshot) => {
+                taskDataStore.myPersonalTasks = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+                renderAll();
+            }, (error) => console.error("Error listening to personal tasks:", error));
+
+            // 2. Listener for Shared Lists
+            const sharedListsRef = collection(db, `artifacts/${appId}/public/data/sharedLists`);
+            const q = query(sharedListsRef, where("members", "array-contains", user.email));
+            unsubscribeSharedLists = onSnapshot(q, (listSnapshot) => {
+                taskDataStore.lists = []; // Reset lists
+                listSnapshot.forEach(listDoc => {
+                    const listData = { id: listDoc.id, data: listDoc.data(), tasks: [] };
+                    taskDataStore.lists.push(listData);
+                    
+                    // Nested listener for tasks within each list
+                    const tasksRef = collection(db, listDoc.ref.path, 'tasks');
+                    onSnapshot(tasksRef, (taskSnapshot) => {
+                        const listIndex = taskDataStore.lists.findIndex(l => l.id === listDoc.id);
+                        if (listIndex > -1) {
+                            taskDataStore.lists[listIndex].tasks = taskSnapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+                            renderAll();
+                        }
+                    }, (error) => console.error(`Error listening to tasks in list ${listDoc.id}:`, error));
+                });
+                if (listSnapshot.empty) { // If user is not part of any list
+                    renderAll();
+                }
+            }, (error) => console.error("Error listening to shared lists:", error));
+
+            // 3. Listener for Invites
+            const invitesRef = collection(db, `artifacts/${appId}/public/data/invites`);
+            const invitesQuery = query(invitesRef, where("to", "==", user.email), where("status", "==", "pending"));
+            unsubscribeInvites = onSnapshot(invitesQuery, (snapshot) => {
+                taskDataStore.invites = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+                renderInvites();
+            }, (error) => console.error("Error listening to invites:", error));
+            
+            // 4. Listener for Nudges
+            const nudgesRef = collection(db, `artifacts/${appId}/public/data/nudges`);
+            const nudgesQuery = query(nudgesRef, where("to", "==", user.email), where("isRead", "==", false));
+            unsubscribeNudges = onSnapshot(nudgesQuery, (snapshot) => {
+                taskDataStore.nudgesReceived = snapshot.docs.map(doc => ({ id: doc.id, data: doc.data() }));
+                renderNudges();
+            }, (error) => console.error("Error listening to nudges:", error));
+        }
+
+        function renderInvites() {
+            invitesContainer.innerHTML = '';
+            if (taskDataStore.invites.length > 0) {
+                const header = document.createElement('h2');
+                header.className = 'text-2xl font-semibold text-amber-600';
+                header.textContent = 'You have pending invitations:';
+                invitesContainer.appendChild(header);
+            }
+            taskDataStore.invites.forEach(invite => {
+                const card = document.createElement('div');
+                card.className = 'bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 rounded-lg flex justify-between items-center shadow';
+                card.innerHTML = `
+                    <div>
+                        <p>You’ve been invited to join: <b class="font-semibold">${invite.data.listName}</b></p>
+                        <p class="text-sm">by ${invite.data.from}</p>
+                    </div>`;
+                const acceptBtn = document.createElement('button');
+                acceptBtn.className = 'bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-lg transition';
+                acceptBtn.textContent = 'Accept';
+                acceptBtn.onclick = () => acceptInvite(invite.id, invite.data.listId);
+                card.appendChild(acceptBtn);
+                invitesContainer.appendChild(card);
+            });
+        }
+        
+        async function acceptInvite(inviteId, listId) {
+            const listRef = doc(db, `artifacts/${appId}/public/data/sharedLists`, listId);
+            const inviteRef = doc(db, `artifacts/${appId}/public/data/invites`, inviteId);
+            try {
+                const batch = writeBatch(db);
+                batch.update(listRef, { members: arrayUnion(currentUserEmail) });
+                batch.update(inviteRef, { status: 'accepted' });
+                await batch.commit();
+                showCustomAlert("Invite accepted!", 'success');
+                // Listeners will handle the UI update
+            } catch (error) {
+                console.error("Error accepting invite:", error);
+                showCustomAlert("An error occurred while accepting the invite.", "error");
+            }
+        }
+        
+        function renderNudges() {
+            nudgesReceivedList.innerHTML = '';
+            if (taskDataStore.nudgesReceived.length === 0) {
+                nudgesReceivedList.innerHTML = '<p class="text-slate-500">No new nudges.</p>';
+                return;
+            }
+            taskDataStore.nudgesReceived.forEach(nudge => {
+                const item = document.createElement('div');
+                item.className = 'reminder-item border-l-yellow-400 relative';
+                const timestamp = nudge.data.createdAt?.toDate() ?? new Date();
+                item.innerHTML = `
+                    <h5>Nudge from ${nudge.data.from.split('@')[0]}</h5>
+                    <p>Regarding: ${nudge.data.taskTitle}</p>
+                    <div class="nudge-message">${nudge.data.message}</div>
+                    <p class="text-xs text-slate-400 mt-1">Received: ${timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                `;
+                const dismissBtn = document.createElement('button');
+                dismissBtn.className = 'absolute top-2 right-2 text-slate-400 hover:text-slate-600';
+                dismissBtn.innerHTML = `<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>`;
+                dismissBtn.onclick = () => dismissNudge(nudge.id);
+                item.appendChild(dismissBtn);
+                nudgesReceivedList.appendChild(item);
+            });
+        }
+        
+        async function dismissNudge(nudgeId) {
+            const nudgeRef = doc(db, `artifacts/${appId}/public/data/nudges`, nudgeId);
+            try {
+                await updateDoc(nudgeRef, { isRead: true });
+            } catch (error) {
+                console.error("Error dismissing nudge:", error);
+            }
+        }
+
+        // --- Firebase Auth & App Initialization ---
+        async function initializeAppAndAuth() {
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                analytics = getAnalytics(app);
+                
+                handleInviteLink();
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        console.log("🔐 User signed in:", user.email, user.uid);
+                        if(settingsUserEmail) settingsUserEmail.textContent = user.email;
+                        if(settingsUserId) settingsUserId.textContent = user.uid;
+                        setupFirestoreListeners(user);
+                    } else {
+                        console.log("🔑 No user found, attempting custom token sign-in...");
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            signInWithCustomToken(auth, __initial_auth_token).catch((error) => {
+                                console.error("Custom token sign-in failed, trying anonymous:", error);
+                                signInAnonymously(auth);
+                            });
+                        } else {
+                            console.log("No custom token, signing in anonymously.");
+                            signInAnonymously(auth).catch(error => console.error("Anonymous sign-in failed:", error));
+                        }
+                    }
+                });
+            } catch (e) {
+                console.error("Critical Firebase initialization error:", e);
+                showCustomAlert("Application failed to initialize. Check console.", "error");
+            }
+            
+            settingsLogoutButton.addEventListener('click', () => signOut(auth));
+            deleteAccountButton.addEventListener('click', () => showCustomAlert("Account deletion is not implemented.", "info"));
+
+            // Setup UI based on localStorage
+            if (localStorage.getItem('darkMode') === 'enabled') {
+                document.documentElement.classList.add('dark');
+                setupToggle('darkModeToggle', true);
+            } else {
+                setupToggle('darkModeToggle', false);
+            }
+            setupToggle('emailNotificationToggle', true);
+            setupToggle('nudgeNotificationToggle', true);
+        }
+        
+        async function handleInviteLink() {
+            const params = new URLSearchParams(window.location.search);
+            listToJoinId = params.get('joinList');
+            if (listToJoinId) {
+                try {
+                    const listRef = doc(db, `artifacts/${appId}/public/data/sharedLists`, listToJoinId);
+                    const listSnap = await getDoc(listRef);
+                    if (listSnap.exists()) {
+                        const listName = listSnap.data().name;
+                        joinListConfirmMessage.innerHTML = `You've been invited to join the list: <b class="text-violet-600">${listName}</b>. Do you want to accept?`;
+                        openModal(joinListConfirmModal);
+                    } else {
+                        showCustomAlert("Invite link is invalid or the list has been deleted.", "error");
+                    }
+                } catch (error) {
+                    console.error("Error fetching list for invite:", error);
+                    showCustomAlert("Could not process invite link.", "error");
+                }
+            }
+        }
+
+        async function joinListFromLink() {
+            if (!listToJoinId || !currentUserEmail) {
+                showCustomAlert("Could not join the list. User not signed in or invalid link.", "error");
+                return;
+            }
+            try {
+                const listRef = doc(db, `artifacts/${appId}/public/data/sharedLists`, listToJoinId);
+                await updateDoc(listRef, {
+                    members: arrayUnion(currentUserEmail)
+                });
+                showCustomAlert("Successfully joined the list!", "success");
+                // Clean up URL
+                const url = new URL(window.location);
+                url.searchParams.delete('joinList');
+                window.history.replaceState({}, document.title, url);
+            } catch (error) {
+                console.error("Error joining list from link:", error);
+                showCustomAlert("Failed to join the list.", "error");
+            } finally {
+                closeModal(joinListConfirmModal);
+            }
+        }
+        
+        confirmJoinListButton.addEventListener('click', joinListFromLink);
+        closeJoinListConfirmModalButton.addEventListener('click', () => closeModal(joinListConfirmModal));
+        cancelJoinListButton.addEventListener('click', () => closeModal(joinListConfirmModal));
+
+
+        initializeAppAndAuth();
+    });
+</script>
+</body>
 </html>
